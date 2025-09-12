@@ -13,8 +13,8 @@ Data processing code for the AppalAir site at Appalachian State University.
 - All-sky Imager
 ## The VISUALIZATION folder will contain scripts for generating plots from processed and raw data.
 - Time series visualization and xy plots 
-- Boxplots (JPS has developed in Matlab)
-- Correlation plots (JPS has developed in Matlab)
+- Boxplots 
+- Correlation plots 
 - Multiple-trace XY plots with color-coded points (traces)
 - Other plots, as determined
 ## The DATABASE folder will contain scripts for combining and post-processing the processed and raw data into usable data sets for further research endevours.
