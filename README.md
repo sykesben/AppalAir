@@ -17,4 +17,4 @@ Data processing code for the AppalAir site at Appalachian State University.
 - Correlation plots (JPS has developed in Matlab)
 - Multiple-trace XY plots with color-coded points (traces)
 - Other plots, as determined
-## The
+## The DATABASE folder will contain scripts for combining and post-processing the processed and raw data into usable data sets for further research endevours.
