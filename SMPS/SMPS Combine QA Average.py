@@ -110,8 +110,9 @@ def CombineFiles():
     :rtype: dataframe 
     """
 
-    #create a dataframe to store combined data
+    #create a dataframe to store combined data and metadata
     dataTotal = pd.DataFrame()
+    metaTotal = pd.DataFrame() 
 
     #Get the path to the data folder
     folderpath = Path(input("\nInput the full path of the folder youd like to access:\n"))
@@ -139,6 +140,8 @@ def CombineFiles():
                     )
         
         dataTotal = dataTotal._append(dataRaw, ignore_index = True)             #append each file to dataTotal
+        
+        metaTotal = metaTotal._append(meta, ignore_index = True)                #appends each metadata to metaTotal 9/19
 
     #Convert the "DateTime Sample Start" column to a datetime object
     dataTotal["DateTime Sample Start"] = pd.to_datetime(dataTotal["DateTime Sample Start"], format = 'mixed', dayfirst=True)
@@ -153,7 +156,15 @@ def CombineFiles():
                      '(This will place the file just outside the folder you indicated previously with the name you specify)\n')
         dataTotal.to_csv(ParentPath / name)
     print(dataTotal)                                                            #print the combined file for a check
-    return dataTotal                                                            #return the combined file
+
+    CreateMetaYN = input('\nWould you like to save this combined metadata? (Y/N)\n')
+    if CreateMetaYN == 'Y':                                                     #if yes, create the file at user speified location 
+                                                                                #just outside the folder the user specified earlier
+        name = input('\nEnter the desired name of your metadata file and include the file type .csv:\n' \
+                     '(This will place the file just outside the folder you indicated previously with the name you specify)\n')
+        metaTotal.to_csv(ParentPath / name)
+    print(metaTotal)                                                            #print the metadata file for a check
+    return dataTotal                                                           #return the combined file
 
 def AverageFile(DataDF,FilePath):
     """
