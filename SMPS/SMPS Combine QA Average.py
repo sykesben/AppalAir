@@ -1,11 +1,10 @@
-#Aydan Gibbs
-#8/28/25
-#Compiles SMPS AIM files in a designated folder and Outputs them into one csv file with no AIM meta data
-#Quality assures data and outputs one csv file with no AIM meta data
-#Averages data over various time steps and outputs one csv file with no AIM meta data
+#Aydan Gibbs and Ethan Parkhurst
+#9/21/25
+#Compiles SMPS AIM files in a designated folder and Outputs them into one xlsx file with AIM meta Data on a seperate sheet
+#Quality assures data and outputs one xlsx file with AIM meta data on a seperate sheet
+#Averages data over various time steps and outputs one xlsx file with AIM meta data on a seperate sheet
 
 #Next Steps
-#export with metadata
 #allow combining to a file that already is without metadata (using a previously combined file)
 #include try catch for if there is no outliers in data
 
@@ -15,13 +14,14 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
 from pathlib import Path
+import xlsxwriter
 
 def main():
 
     #ask user if they would like to combine files
     CombineFilesYN = input("\nWould you like to combine files? (Y/N)\n")
     if CombineFilesYN == 'Y':                                                   #if yes, run CombineFiles
-        CombinedDF = CombineFiles()
+        CombinedDF, CombinedMeta = CombineFiles()
 
     #ask user if they would like to QA a file
     QualityAssureFileYN = input('\nWould you like to quality assure a file? (Y/N)\n')
@@ -30,15 +30,16 @@ def main():
                                                                                 #ask if user would like to use the combined file
             QualityAssureCombinedFileYN = input('\nWould you like to use the file you just made? (Y/N)\n')
             if QualityAssureCombinedFileYN == 'Y':                              #if yes:
-                QADF = QualityAssureFile(CombinedDF, 'N')                       #run QualityAssureFile with previously combined data
+                QADF, QAMF = QualityAssureFile(CombinedDF,CombinedMeta, 'N')                       #run QualityAssureFile with previously combined data
+
             else:                                                               #if no:
                                                                                 #prompt for the full path of data they would like to quality assure
                 filepath = Path(input("\nEnter full path of file you would like to quality assure.\n"))
-                QADF = QualityAssureFile(pd.DataFrame(), filepath)              #run QualityAssureFile with an empty dataframe and the path of the file specified
+                QADF, QAMF = QualityAssureFile(pd.DataFrame(),pd.DataFrame(), filepath)              #run QualityAssureFile with 2 empty dataframes and the path of the file specified
         else:                                                                   #if they didnt combine a file previously:
                                                                                 #prompt for the full path of data they would like to quality assure
             filepath = Path(input("\nEnter full path of file you would like to quality assure.\n"))
-            QADF = QualityAssureFile(pd.DataFrame(), filepath)                  #run QualityAssureFile with an empty dataframe and the path of the file specified
+            QADF, QAMF = QualityAssureFile(pd.DataFrame(),pd.DataFrame(), filepath)                  #run QualityAssureFile with 2 empty dataframes and the path of the file specified
 
     #ask user if they would like to average a file
     AverageFileYN = input("\nWould you like to average a file? (Y/N)\n")
@@ -47,20 +48,20 @@ def main():
                                                                                 #ask if they would like to use the previous file
             AverageCombinedorQualityAssuredFileYN = input("\nWould you like to use the file you just made? (Y/N)\n")
             if AverageCombinedorQualityAssuredFileYN == 'Y' and QualityAssureFileYN == 'Y':
-                AverageFile(QADF,'N')                                           #if yes and they used QualityAssureFile:
+                AverageFile(QADF,QAMF,'N')                                           #if yes and they used QualityAssureFile:
                                                                                 #run AverageFile with QADF
             elif AverageCombinedorQualityAssuredFileYN == 'Y' and CombineFilesYN == 'Y':
-                AverageFile(CombinedDF,'N')                                     #if yes and they only combined a file:
+                AverageFile(CombinedDF,CombinedMeta,'N')                                     #if yes and they only combined a file:
                                                                                 #run AverageFile with CombinedDF
 
             else:                                                               #if they dont want to use the file they previously used:
-                                                                                #promt for the full path of data they would like to average
+                                                                                #prompt for the full path of data they would like to average
                 filepath = Path(input("\nEnter full path of file you would like to average.\n"))
-                AverageFile(pd.DataFrame(),filepath)                            #run AverageFile with an empty dataframe and the path of file specified
+                AverageFile(pd.DataFrame(),pd.DataFrame(),filepath)                            #run AverageFile with 2 empty dataframes and the path of file specified
         else:                                                                   #if they didnt use either previous function:
                                                                                 #prompt for the full path of data they would like to avearge
                 filepath = Path(input("\nEnter full path of file you would like to average.\n"))
-                AverageFile(pd.DataFrame(),filepath)                            #run AverageFile with an empty dataframe and the path of file specified
+                AverageFile(pd.DataFrame(),pd.DataFrame(),filepath)                            #run AverageFile with 2 empty dataframes and the path of file specified
 
 
 
@@ -103,10 +104,13 @@ def _get_linecount(fpath, keyword, delimiter=',', encoding='ISO-8859-1'):
 
 def CombineFiles():
     """
-    8/20/25
+    9/21/25
     Outputs a dataframe of combined TSI EC 3082 and CPC 3750 SMPS data files within a user specified folder
 
-    :return: A data frame of combined data from the user specified folder
+    :return: A data frame of combined data from the user specified folder in xlsx format
+    :rtype: dataframe 
+
+    :return: A data frame of combined metadata from the user specified folder in xlsx format
     :rtype: dataframe 
     """
 
@@ -141,7 +145,7 @@ def CombineFiles():
         
         dataTotal = dataTotal._append(dataRaw, ignore_index = True)             #append each file to dataTotal
         
-        metaTotal = metaTotal._append(meta, ignore_index = True)                #appends each metadata to metaTotal 9/19
+        metaTotal = metaTotal._append(meta, ignore_index = True)                #appends each metadata to metaTotal 
 
     #Convert the "DateTime Sample Start" column to a datetime object
     dataTotal["DateTime Sample Start"] = pd.to_datetime(dataTotal["DateTime Sample Start"], format = 'mixed', dayfirst=True)
@@ -149,48 +153,53 @@ def CombineFiles():
     dataTotal = dataTotal.sort_index()
 
     #saves user data apon request
-    CreateFileYN = input('\nWould you like to save this combined file? (Y/N)\n')#promt user to save combined file
+    CreateFileYN = input('\nWould you like to save this combined file? (Y/N)\n')#prompt user to save combined file
     if CreateFileYN == 'Y':                                                     #if yes, create the file at user speified location 
                                                                                 #just outside the folder the user specified earlier
-        name = input('\nEnter the desired name of your combined file and include the file type .csv:\n' \
+        name = input('\nEnter the desired name of your combined file and include the file type .xlsx:\n' \
                      '(This will place the file just outside the folder you indicated previously with the name you specify)\n')
-        dataTotal.to_csv(ParentPath / name)
+        with pd.ExcelWriter(ParentPath / name, engine = 'xlsxwriter') as writer: #append the dataframes onto their own sheets
+            dataTotal.to_excel(writer, sheet_name = "Data", index = True)       #creates the sheet Data and stores combined data
+            metaTotal.to_excel(writer, sheet_name = "Meta", index = False)      #creates the sheet Meta and stores combined meta data
+        
+
     print(dataTotal)                                                            #print the combined file for a check
-
-    CreateMetaYN = input('\nWould you like to save this combined metadata? (Y/N)\n')
-    if CreateMetaYN == 'Y':                                                     #if yes, create the file at user speified location 
-                                                                                #just outside the folder the user specified earlier
-        name = input('\nEnter the desired name of your metadata file and include the file type .csv:\n' \
-                     '(This will place the file just outside the folder you indicated previously with the name you specify)\n')
-        metaTotal.to_csv(ParentPath / name)
     print(metaTotal)                                                            #print the metadata file for a check
-    return dataTotal                                                           #return the combined file
+    return dataTotal, metaTotal                                                            #return the combined data and comined meta dataframes
 
-def AverageFile(DataDF,FilePath):
+def AverageFile(DataDF,MetaDF,FilePath):
     """
-    8/28/25
-    Takes in a dataframe of TSI EC 3082 and CPC 3750 SMPS data with metadata removed.
+    9/21/25
+    Takes in a dataframe of TSI EC 3082 and CPC 3750 SMPS data with metadata on a seperate sheet.
     Outputs a dataframe of TSI EC 3082 and CPC 3750 SMPS data averaged over a user specified time step
 
     :param DataDF: TSI EC 3082 and CPC 3750 SMPS dataframe with metadata removed
     :type DataDF: dataframe
 
-    :param filepath: Optional, path of a .csv file that contains TSI EC 3082 and CPC 3750 SMPS
+    :param MetaDF: TSI EC 3082 and CPC 3750 SMPS metadata
+    :type MetaDF: dataframe
+
+    :param filepath: Optional, path of a .xlsx file that contains TSI EC 3082 and CPC 3750 SMPS
     data with metadata removed, defaults to 'N'
     :type filepath: string
 
     :return: DataDF averaged over a user specified time step
     :rtype: dataframe 
+
+    :return: MetaDF metaData
+    :rtype: dataframe 
     """
 
 
-    if FilePath == "N":                                                         #if there is no filepath use DataDF as dataRaw
+    if FilePath == "N":                                                         #if there is no filepath use DataDF as dataRaw and MetaDF as meta
         dataRaw = DataDF
+        meta = MetaDF
 
         #Takes the statistics, raw, and corrected data columns from the data to then be averaged
         #we do this so that you arnt trying to average N/A data, or text data
         AllColumns = list(dataRaw.columns)                                      #lists all the columns
-        StatsHeaders = AllColumns[33:40] + AllColumns[41:500]                   #selects statistics columns, raw, and corrected data from the list
+        StatsHeaders = AllColumns[32:40] + AllColumns[41:500]                   #selects statistics columns, raw, and corrected data from the list 
+                                                                                #(-1 from other StatsHeader to grab median)
         print(StatsHeaders)
         dataRaw =  dataRaw[StatsHeaders]                                        #uses just the previously selected columns
         dataRaw.index = pd.to_datetime(dataRaw.index)                           #turn the index back into a date time object (this was undone some how previously)
@@ -198,8 +207,8 @@ def AverageFile(DataDF,FilePath):
     else:                                                                       #if there is a filepath, load that file as dataRaw
         if FilePath.is_file():
                         print(FilePath)
-                        dataRaw = pd.read_csv(FilePath)
-
+                        dataRaw = pd.read_excel(FilePath, "Data")               #reads for the sheet Data at the file path specified
+                        meta = pd.read_excel(FilePath, "Meta")                  #reads for the sheet Meta at the file path specified
                         #Convert the "DateTime Sample Start" column to a datetime object
                         dataRaw["DateTime Sample Start"] = pd.to_datetime(dataRaw["DateTime Sample Start"], format = 'mixed', dayfirst=True)
 
@@ -224,48 +233,67 @@ def AverageFile(DataDF,FilePath):
         if FilePath == 'N':                                                     #if there was not a filepath passed at the beginning, 
                                                                                 #prompt for a filepath to save the data to
             name = input('\nEnter the full path for your averaged file and include the file type .csv:\n')    
-            dataRaw.to_csv(name)
+            with pd.ExcelWriter(name, engine = 'xlsxwriter') as writer:
+                dataRaw.to_excel(writer, sheet_name = "Data", index = True)     #creates the sheet Data and stores the averaged data
+                meta.to_excel(writer, sheet_name = "Meta", index = False)       #creates the sheet Meta and stores the meta data
         else:                                                                   #if there was a filepath passed
                                                                                 #prompt for a name for the file, and save in the same folder as the filepath
             ParentPath = FilePath.parent
+            
             name = input('\nEnter the desired name for your averaged file and include the file type .csv:\n'
                          '(This will place the file in the same folder as the file you just averaged with the name you specify)\n')    
-            dataRaw.to_csv(ParentPath / name)
+            with pd.ExcelWriter(ParentPath / name, engine = 'xlsxwriter') as writer:
+                dataRaw.to_excel(writer, sheet_name = "Data", index = True)     #creates the sheet Data and stores the averaged data
+                meta.to_excel(writer, sheet_name = "Meta", index = False)       #creates the sheet Meta and stores the meta data
+
+    return dataRaw , meta                                                       #returns both the data averaged and the metadata
 
 
-def QualityAssureFile(DataDF ,filepath = 'N'):
+def QualityAssureFile(DataDF, MetaDF, filepath = 'N'):
     """
-    8/20/25
-    Takes in a dataframe of TSI EC 3082 and CPC 3750 SMPS data with metadata removed.
+    9/21/25
+    Takes in a dataframe of TSI EC 3082 and CPC 3750 SMPS data with metadata.
     Outputs a dataframe of TSI EC 3082 and CPC 3750 SMPS data with outliers removed 
-    by FindOutliersAverage and FindOutliersRange removed.
+    by FindOutliersAverage and FindOutliersRange removed with metadata on seperate sheet.
 
     :param DataDF: TSI EC 3082 and CPC 3750 SMPS dataframe with metadata removed
     :type DataDF: dataframe
 
-    :param filepath: Optional, path of a .csv file that contains TSI EC 3082 and CPC 3750 SMPS
-    data with metadata removed, defaults to 'N'
+    :param MetaDF: TSI EC 3082 and CPC 3750 SMPS metadata
+    :type DataDF: dataframe
+
+    :param filepath: Optional, path of a .xlsx file that contains TSI EC 3082 and CPC 3750 SMPS
+    data with metadata, defaults to 'N'
     :type filepath: string
 
     :return: DataDF with outliers removed
     :rtype: dataframe 
+
+    :return: MetaDF
+    :rtype: dataframe 
     """
     
     
-    if filepath == 'N':                                                         #if there is no filepath use DataDF as dataRaw
+    if filepath == 'N':                                                         #if there is no filepath use DataDF as dataRaw and MetaDF as meta
         dataRaw = DataDF
-    else:                                                                       #if there is a filepath, load that file as dataRaw
+        meta = MetaDF
+
+    else:                                                                       #if there is a filepath, load that file with the sheet Data as dataRaw and Meta as meta
         if filepath.is_file():
             print('\nFile to be quality assured: ' + str(filepath))
-            dataRaw = pd.read_table(
+            dataRaw = pd.read_excel(
                 filepath,
-                delimiter = ',')
+                "Data")
+            meta = pd.read_excel(
+                filepath,
+                "Meta")
 
             #Convert the "DateTime Sample Start" column to a datetime object
             dataRaw["DateTime Sample Start"] = pd.to_datetime(dataRaw["DateTime Sample Start"], format = 'mixed', dayfirst=True)
             dataRaw = dataRaw.set_index('DateTime Sample Start')                #now use the datetime object as the new index, this sorts the data by date
+            ParentPath = filepath.parent
 
-
+    
     #use outlier functions to remove outliers
     HumidityRangeOutliers = FindOutliersRange(dataRaw, 'Aerosol Humidity (%)', 0, 40)
     dataRaw = RemoveOutliers(dataRaw, HumidityRangeOutliers)
@@ -281,16 +309,22 @@ def QualityAssureFile(DataDF ,filepath = 'N'):
     if CreateFileYN == 'Y':                                                     #if yes: create a file
         if filepath == 'N':                                                     #if there was not a filepath passed at the beginning, 
                                                                                 #prompt for a filepath to save the data to
-            name = input('\nEnter the full path for your QA file and include the file type .csv:\n')    
-            dataRaw.to_csv(name)
+            name = input('\nEnter the full path for your QA file and include the file type .xlsx:\n')    
+
+            with pd.ExcelWriter(name, engine = 'xlsxwriter') as writer:
+                dataRaw.to_excel(writer, sheet_name = "Data", index = True)     #creates the sheet Data and stores the averaged data
+                meta.to_excel(writer, sheet_name = "Meta", index = False)       #creates the sheet Meta and stores the meta data
         else:                                                                   #if there was a filepath passed
                                                                                 #prompt for a name for the file, and save in the same folder as the filepath
             ParentPath = filepath.parent
-            name = input('\nEnter the desired name of your QA file and include the file type .csv:\n' \
+            name = input('\nEnter the desired name of your QA file and include the file type .xlsx:\n' \
                          '(This will place the file same folder as the file you just QA with the name you specify)\n')
-            dataRaw.to_csv(ParentPath / name)
+            #dataRaw.to_csv(ParentPath / name)
+            with pd.ExcelWriter(ParentPath / name, engine = 'xlsxwriter') as writer:
+                dataRaw.to_excel(writer, sheet_name = "Data", index = True)     #creates the sheet Data and stores the averaged data
+                meta.to_excel(writer, sheet_name = "Meta", index = False)       #creates the sheet Meta and stores the meta data
     print(dataRaw)
-    return dataRaw                                                              #return QA dataframe
+    return dataRaw, meta                                                              #return QA dataframe and metadata
 
 
 def FindOutliersAverage(Data, DataType):
