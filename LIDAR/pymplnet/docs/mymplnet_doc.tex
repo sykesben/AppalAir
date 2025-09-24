@@ -1,0 +1,715 @@
+\documentclass[11pt, oneside]{article}   	
+\usepackage[margin=1in]{geometry}                		
+\evensidemargin=0.25in  
+\oddsidemargin=0.25in 
+\textwidth=6.25in
+
+\usepackage{fancyhdr}
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[R]{\thepage}
+
+
+\usepackage{graphicx,color}	
+
+%%% Here I define my colors.  You can go to  http://latexcolor.com/ to find a list of other colors you could add. 
+\definecolor{green}{rgb}{0.0, 0.5, 0.0}			
+\definecolor{red}{rgb}{1.0, 0.13, 0.32}
+\definecolor{blue}{rgb}{0.0, 0.5, 1.0}	
+\definecolor{orange}{rgb}{0.93, 0.57, 0.13}
+\definecolor{purple}{rgb}{0.6, 0.33, 0.73}
+\definecolor{brown}{rgb}{0.44, 0.26, 0.08}
+					
+\usepackage{amssymb, amsmath, amsfonts, amsthm, multicol}
+
+\renewcommand\qedsymbol{$\blacksquare$}
+
+\title{MPLNet Data Tool}
+\author{Last updated}
+\date{3 December 2023}
+
+
+
+\begin{document}
+\newcommand{\modular}[1]{\; \mbox{(mod $#1$)}}
+\thispagestyle{empty}
+\maketitle
+\tableofcontents
+\thispagestyle{empty}
+
+
+
+\mbox{}
+\newpage
+\setcounter{page}{1}
+
+
+
+\section{Description}
+(PLACEHOLDER)
+The objective of this project is to develop a functional graphical user interface 
+for seamless communication and data retrieval from NASA's Micro Pulse Lidar Network 
+(MPLNet). \\
+
+The application is designed to streamline the downloading process, providing 
+users with a user-friendly interface while eliminating the need for direct access 
+to NASA's data site. \\
+
+It enables comprehensive data selection from AppState's MPLNet 
+site, facilitating the aggregation and transformation of data from netCDF4 format 
+to CSV format. This enhancement aims to expedite further research endeavors.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\newpage
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\section{buildDirList}
+
+\textbf{Description} \\
+        Returns a list of directories to be used for downloading the files\\
+
+\noindent\textbf{Usage} \\
+        buildDirList(years, months, days, data\_path='..\/data\/') \\
+
+\noindent\textbf{Arguments} \\
+        years (list): The list of years\\
+        months (list): The list of months\\
+        days (list): The list of days\\
+        data\_path (str): The path to the data folder (default: '../data/')\\
+            This is the path relative to the current working directory\\
+
+\noindent\textbf{Returns} \\
+        dirs (list): The list of directories to be downloaded\\
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\section{buildFileList}
+
+\textbf{Description} \\
+        Returns a list of files to be downloaded based upon the user input\\
+
+\noindent\textbf{Usage} \\
+        buildFileList(years, months, days, fileTypes) \\
+
+\noindent\textbf{Arguments} \\
+        years (list): The list of years\\
+        months (list): The list of months\\
+        days (list): The list of days\\
+        fileTypes (list): The list of file types\\
+
+\noindent\textbf{Returns} \\
+        files (list): The list of files to be downloaded\\
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\newpage
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\section{buildURLList}
+
+\textbf{Description} \\
+        Returns a list of urls to be downloaded based upon the user input\\
+
+\noindent\textbf{Usage} \\
+        buildURLList(years, months, days, fileTypes) \\
+
+\noindent\textbf{Arguments} \\
+        years (list): The list of years\\
+        months (list): The list of months\\
+        days (list): The list of days\\
+        fileTypes (list): The list of file types\\
+
+\noindent\textbf{Returns} \\
+        urls (lis1): The list of urls to be downloaded\\
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\section{buildSelectionList}
+
+\textbf{Description} \\
+        Returns a list of months, days, and files for selection\\
+
+\noindent\textbf{Usage} \\
+        buildSelectionList(years) \\
+
+\noindent\textbf{Arguments} \\
+        years (list): The years available for a given site\\
+
+\noindent\textbf{Returns} \\
+        months (list): The months available for a given site and year\\
+        days (list): The days available for a given site, year, and month\\
+        fileTypes (list): The files available for a given site, year, month, and day\\
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\newpage
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\section{create\_directory}
+
+\textbf{Description} \\
+        Returns the url for the mplnet file path\\
+
+\noindent\textbf{Usage} \\
+        create\_directory(path) \\
+
+\noindent\textbf{Arguments} \\
+        path (str): The path to be folder to be created\\
+
+\noindent\textbf{Returns} \\
+        None\\
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\section{create\_export\_name}
+
+\textbf{Description} \\
+
+\noindent\textbf{Usage} \\
+        create\_export\_name(selectedVars, variable)
+
+\noindent\textbf{Arguments} \\
+        selectedVars (object): object containing selected variables\\
+        variable (str): name of variable to export\\
+
+\noindent\textbf{Returns} \\
+        filename (str): name of export file\\
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\section{directory\_select}
+
+\textbf{Description} \\
+        Returns user selected directory from a list\\
+        Depreciated as GUI will guide user selection\\
+
+\noindent\textbf{Usage} \\
+        directory\_select(name, options) \\
+
+\noindent\textbf{Arguments} \\
+        name (str): The name of the directory\\
+        options (list): The options for the directory\\
+
+\noindent\textbf{Returns} \\
+        str: The user selected directory\\
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\section{export}
+
+\textbf{Description} \\
+        Export data to csv file\\
+        Uses current data directory to save csv file\\
+
+\noindent\textbf{Usage} \\
+        export(filename, files, variable) \\
+
+\noindent\textbf{Arguments} \\
+        filename (str): name of output csv file\\
+        files (list): list of full file paths\\
+        variable (str): name of variable to export\\
+
+\noindent\textbf{Returns} \\
+        None\\
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\section{file\_select}
+
+\textbf{Description} \\
+        Returns user selected file from a list\\
+        Depreciated as GUI will guide user selection\\
+
+\noindent\textbf{Usage} \\
+        file\_select(file\_list) \\
+
+\noindent\textbf{Arguments} \\
+        file\_list (list): The list of files\\
+
+\noindent\textbf{Returns} \\
+        str: The user selected file\\
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\newpage
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\section{get\_mplnet\_data}
+
+\textbf{Description} \\
+        Writes the mplnet data from file at url to file\_path\_name\\
+
+\noindent\textbf{Usage} \\
+        get\_mplnet\_data(url, file\_path\_name) \\
+
+\noindent\textbf{Arguments} \\
+        url (str): The url for the mplnet data file \\
+        file\_path\_name (str): The full path and name of the file to be saved \\
+
+\noindent\textbf{Returns} \\
+        Boolean value indicating if the file was downloaded and saved successfully
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\section{get\_mplnet\_html}
+
+\textbf{Description} \\
+        Returns the html for the mplnet address given \\
+        Used to scrape for file variables to assist in downloading \\
+
+\noindent\textbf{Usage} \\
+        get\_mplnet\_html(url) \\
+
+\noindent\textbf{Arguments} \\
+        url (str): The url for the mplnet html \\
+
+\noindent\textbf{Returns} \\
+        requests.Response (object): The html for the mplnet address given \\
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\section{get\_user\_path}
+
+\textbf{Description} \\
+        Returns the user specified path for the mplnet data\\
+
+\noindent\textbf{Usage} \\
+        get\_user\_path() \\
+
+\noindent\textbf{Arguments} \\
+        None\\
+
+\noindent\textbf{Returns} \\
+        str: The user specified local path for the mplnet data\\
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\section{leap\_year}
+
+\textbf{Description} \\
+        Returns true if year is a leap year\\
+
+\noindent\textbf{Usage} \\
+        leap\_year(year) \\
+
+\noindent\textbf{Arguments} \\
+        year (int): The year to be checked\\
+
+\noindent\textbf{Returns} \\
+        bool: True if year is a leap year\\
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\section{parse\_day}
+
+\textbf{Description} \\
+        Returns a list of the days available for a given site, year, and month\\
+
+\noindent\textbf{Usage} \\
+        parse\_day(html) \\
+
+\noindent\textbf{Arguments} \\
+        html (str): The html for the mplnet address given\\
+
+\noindent\textbf{Returns} \\
+        list: The days available for a given site, year, and month\\
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\section{parse\_file}
+
+\textbf{Description} \\
+        Returns a list of the files available for a given site, year, month, and day\\
+
+\noindent\textbf{Usage} \\
+        parse\_file(html) \\
+
+\noindent\textbf{Arguments} \\
+        html (str): The html for the mplnet address given\\
+
+\noindent\textbf{Returns} \\
+        list: The files available for a given site, year, month, and day\\
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\section{parse\_month}
+
+\textbf{Description} \\
+        Returns a list of the months available for a given site and year\\
+
+\noindent\textbf{Usage} \\
+        parse\_month(html) \\
+
+\noindent\textbf{Arguments} \\
+        html (str): The html for the mplnet address given\\
+
+\noindent\textbf{Returns} \\
+        list: The months available for a given site and year\\
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{parse\_year}
+
+\textbf{Description} \\
+        Returns a list of the years available for a given site
+
+\noindent\textbf{Usage} \\
+        parse\_year(html) \\
+
+\noindent\textbf{Arguments} \\
+        html (str): The html for the mplnet address given \\
+
+\noindent\textbf{Returns} \\
+        list: The years available for a given site \\
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\newpage
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\section{FileVariables (class)}
+
+\textbf{Description} \\
+        Class to build and store file variables\\
+
+\noindent\textbf{Usage} \\
+        fileVar = FileVariables() \\
+
+\noindent\textbf{Attributes} \\
+        filetype (str): The file type\\
+        filevars (list): The file variables\\
+        nextIter (int): The next file variable to be filled\\
+        selectedFileType (str): The selected file type\\
+        selectedFileVars (list): The selected file variables\\
+
+\noindent\textbf{Methods} \\
+        setFileTypes(ft): Store the file types from the downloaded files\\
+            into the filetype variable to allow user selection\\
+        next(): Returns the next file variable to be filled\\
+            based upon the user input\\
+        peakNext(): Returns the next file variable to be filled\\
+            based upon the user input\\
+        storeCurrent(value): Returns the current file variable to be filled\\
+            based upon the user input\\
+        setFileVars(file): Returns the file variables for the selected file type\\
+        printSelected(var): Prints the selected file variable\\
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\section{FileVariables.next}
+
+\textbf{Description} \\
+        Returns the next file variable to be filled \\
+        based upon the user input\\
+
+\noindent\textbf{Usage} \\
+        fileVar.next() \\
+
+\noindent\textbf{Arguments} \\
+        None\\
+
+\noindent\textbf{Returns} \\
+        The next file variable to be filled\\
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\section{FileVariables.peakNext}
+
+\textbf{Description} \\
+        Returns the next file variable to be filled\\
+        based upon the user input\\
+
+\noindent\textbf{Usage} \\
+        fileVar.peakNext() \\
+
+\noindent\textbf{Arguments} \\
+        None\\
+
+\noindent\textbf{Returns} \\
+        Boolean value indicating if there is a next file variable\\
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\section{FileVariables.printSelected}
+
+\textbf{Description} \\
+        Prints the selected file variable\\
+
+\noindent\textbf{Usage} \\
+        fileVar.printSelected(var) \\
+
+\noindent\textbf{Arguments} \\
+        var (str): The selected file variable\\
+
+\noindent\textbf{Returns} \\
+        String with the selected file variable\\
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\section{FileVariables.setFileTypes}
+
+\textbf{Description} \\
+        Store the file types from the downloaded files\\
+        into the filetype variable to allow user selection\\
+
+\noindent\textbf{Usage} \\
+        fileVar.setFileTypes(ft) \\
+
+\noindent\textbf{Arguments} \\
+        ft (list): The list of file types\\
+
+\noindent\textbf{Returns} \\
+        None\\
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\section{FileVariables.setFileVars}
+
+\textbf{Description} \\
+        Opens the netcdf file and extracts the variables and populates\\
+        the filevars dictionary\\
+
+\noindent\textbf{Usage} \\
+        fileVar.setFileVars(file) \\
+
+\noindent\textbf{Arguments} \\
+        files (str): A full path to the netcdf file to be opened\\
+
+\noindent\textbf{Returns} \\
+        None\\
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\section{FileVariables.storeCurrent}
+
+\textbf{Description} \\
+        Stores the current file variable to be filled \\
+        based upon the user input and the nextIter variable\\
+
+\noindent\textbf{Usage} \\
+        fileVar.storeCurrent(value) \\
+
+\noindent\textbf{Arguments} \\
+        None\\
+
+\noindent\textbf{Returns} \\
+        None\\
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\newpage
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\section{SelectionVariables (class)}
+
+\textbf{Description} \\
+        Class to build and store selection variables\\
+
+\noindent\textbf{Usage} \\
+        selVar = SelectionVariables() \\
+
+\noindent\textbf{Attributes} \\
+        years (list): The list of years\\
+        months (list): The list of months\\
+        days (list): The list of days\\
+        fileTypes (list): The list of file types\\
+        selectedYears (list): The list of selected years\\
+        selectedMonths (list): The list of selected months\\
+        selectedDays (list): The list of selected days\\
+        selectedFileTypes (list): The list of selected file types\\
+        nextIter (int): The next selection variable to be filled\\
+
+\noindent\textbf{Methods} \\
+        getVars(html): Returns the years, months, days, and file types from the html\\
+        setSelectVars(years, months, days, fileTypes): Sets the selection variables based upon the user input\\
+        next(): Returns the next selection variable to be filled\\
+            based upon the user input\\
+        peakNext(): Returns the next selection variable to be filled\\
+            based upon the user input\\
+        storeCurrent(value): Returns the current selection variable to be filled\\
+            based upon the user input\\
+        prepDownload(): Returns the urls, directories, and files to be downloaded\\
+        download(url, dir, file): Downloads the selected files\\
+        checkSelection(): Checks to make sure a selection is made in each category\\
+        reset(): Resets the nextIter variable to 0\\
+        printSelected(): Prints the selected variables\\
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\newpage
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\section{SelectionVariables.checkSelection}
+
+\textbf{Description} \\
+        Checks to make sure a selection is made in each category\\
+
+\noindent\textbf{Usage} \\
+        selVar.checkSelection() \\
+
+\noindent\textbf{Arguments} \\
+        None\\
+
+\noindent\textbf{Returns} \\
+        Boolean value indicating if a selection is made in each category\\
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\section{SelectionVariables.download}
+
+\textbf{Description} \\
+        Downloads the selected files\\
+
+\noindent\textbf{Usage} \\
+        selVar.download(url, dir, file) \\
+
+\noindent\textbf{Arguments} \\
+        url (str): The url for the mplnet data file\\
+        dir (str): The full path of the file to be saved, not including the file name\\
+        file (str): The name of the file to be saved\\
+
+\noindent\textbf{Returns} \\
+        String with the file name and status of the download\\
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\section{SelectionVariables.getVars}
+
+\textbf{Description} \\
+        Builds the years, months, days, and file types from the html\\
+        to be used in the selection of files to be downloaded\\
+
+\noindent\textbf{Usage} \\
+        selVar.getVars(html) \\
+
+\noindent\textbf{Arguments} \\
+        html (str): The html from the mplnet website\\
+
+\noindent\textbf{Returns} \\
+        None \\
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\section{SelectionVariables.next}
+
+\textbf{Description} \\
+        Returns the next selection variable to be filled \\
+        based upon the user input\\
+
+\noindent\textbf{Usage} \\
+        selVar.next() \\
+
+\noindent\textbf{Arguments} \\
+        None\\
+
+\noindent\textbf{Returns} \\
+        The next selection variable to be filled or None\\
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\section{SelectionVariables.peakNext}
+
+\textbf{Description} \\
+        Returns the next selection variable to be filled\\
+        based upon the user input\\
+
+\noindent\textbf{Usage} \\
+        selVar.peakNext() \\
+
+\noindent\textbf{Arguments} \\
+        None\\
+
+\noindent\textbf{Returns} \\
+        Boolean value indicating if there is a next selection variable\\
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\section{SelectionVariables.prepDownload}
+
+\textbf{Description} \\
+        Prepares a tuple the selected files to be downloaded including
+        the urls, directories, and files
+
+\noindent\textbf{Usage} \\
+        selVar.prepDownload() \\
+
+\noindent\textbf{Arguments} \\
+        None\\
+
+\noindent\textbf{Returns} \\
+        Tuple of lists containing the urls, dirs, and, files to be downloaded\\
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\section{SelectionVariables.printSelected}
+
+\textbf{Description} \\
+        Prints the selected variables\\
+
+\noindent\textbf{Usage} \\
+        selVar.printSelected() \\
+
+\noindent\textbf{Arguments} \\
+        None\\
+
+\noindent\textbf{Returns} \\
+        String with the selected variables\\
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\section{SelectionVariables.reset}
+
+\textbf{Description} \\
+        Resets the nextIter variable to 0 and clears the selected values\\
+
+\noindent\textbf{Usage} \\
+        selVar.reset() \\
+
+\noindent\textbf{Arguments} \\
+        None\\
+
+\noindent\textbf{Returns} \\
+        None\\
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\section{SelectionVariables.storeCurrent}
+
+\textbf{Description} \\
+        Returns the current selection variable to be filled \\
+        based upon the user input\\
+
+\noindent\textbf{Usage} \\
+        selVar.storeCurrent(value) \\
+
+\noindent\textbf{Arguments} \\
+        value (list): The current selection values to be stored\\
+
+\noindent\textbf{Returns} \\
+        None\\
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 
+           
+\end{document}  
