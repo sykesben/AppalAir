@@ -29,7 +29,7 @@ Activate the environment from the `Scripts` folder within the `env_folder` : `en
 If an environment is not setup the dependencies will be installed system wide.
 
 ##### Clone the repo
-Clone or download from [github.com](https://github.com/jdgreene/mplnet-data).
+Clone or download from [github.com](https://github.com/sykesben/AppalAir/tree/main/LIDAR).
 
 ##### Install the requirements for the GUI
 Using the `requirements.txt` file located in the main folder of the project.
