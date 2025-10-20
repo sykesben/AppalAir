@@ -124,23 +124,34 @@ def CombineFiles():
     #itterates through each file in the user specified folder and appends them to dataTotal
     for entry in folderpath.iterdir():                                          #looks at each item in the folder
         print(entry)                                                            #prints each file name
+        if "METADATA" in str(entry):
+            
+            meta = pd.read_table(                                                   #reads in the metadata into a df 'meta'
+                    entry, 
+                    #nrows=metaDataLines, 
+                    delimiter=',', 
+                    #header=None, 
+                    #encoding='ISO-8859-1',
+                    #on_bad_lines='warn',
+                    index_col = 0
+                )
+        else:
+            metaDataLines = _get_linecount(entry, keyword = 'Scan Number' or 'DateTime Sample Start')          #returns the linecount of metadata
 
-        metaDataLines = _get_linecount(entry, keyword = 'Scan Number' or 'DateTime Sample Start')          #returns the linecount of metadata
-
-        meta = pd.read_table(                                                   #reads in the metadata into a df 'meta'
-                        entry, 
-                        nrows=metaDataLines, 
-                        delimiter=',', 
-                        header=None, 
-                        encoding='ISO-8859-1',
-                        on_bad_lines='warn',
-                        index_col = 0
-                    ).T.iloc[0,:].to_dict()
-        dataRaw = pd.read_table(                                                #reads in the data, skipping over the metaDataLines
-                        entry,
-                        skiprows=metaDataLines,
-                        delimiter = ','
-                    )
+            meta = pd.read_table(                                                   #reads in the metadata into a df 'meta'
+                            entry, 
+                            nrows=metaDataLines, 
+                            delimiter=',', 
+                            header=None, 
+                            encoding='ISO-8859-1',
+                            on_bad_lines='warn',
+                            index_col = 0
+                        ).T.iloc[0,:].to_dict()
+            dataRaw = pd.read_table(                                                #reads in the data, skipping over the metaDataLines
+                            entry,
+                            skiprows=metaDataLines,
+                            delimiter = ','
+                        )
         
         
         
