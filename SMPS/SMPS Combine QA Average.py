@@ -15,6 +15,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
 from pathlib import Path
+from datetime import datetime
 
 def main():
 
@@ -213,12 +214,14 @@ def AverageFile(DataDF,FilePath):
 
                         #Convert the "DateTime Sample Start" column to a datetime object
                         dataRaw["DateTime Sample Start"] = pd.to_datetime(dataRaw["DateTime Sample Start"], format = 'mixed', dayfirst=True)
+                        dataRaw["Date Processed"] = datetime.now()
 
                         #Takes the statistics, raw, and corrected data columns from the data to then be averaged
                         #we do this so that you arnt trying to average N/A data, or text data
                         AllColumns = list(dataRaw.columns)                      #lists all the columns
-                        StatsHeaders = AllColumns[33:40] + AllColumns[41:500]   #selects statistics columns, raw, and corrected data from the list
-                        StatsHeaders.append('DateTime Sample Start')            #add the time stamps to the list
+                        #StatsHeaders.append('DateTime Sample Averaged')        #COLUMNS NEED TO SHIFT OVER BY 1 ONCE WE ADD ERROR READING BAR IN QA
+                        StatsHeaders = ['Date Processed'] + AllColumns[33:40] + AllColumns[41:500]   #selects statistics columns, raw, and corrected data from the list
+                        StatsHeaders.append('DateTime Sample Start')            #add the time stamps to the lis
                         dataRaw =  dataRaw[StatsHeaders]                        #uses just the previously selected columns   
                         dataRaw = dataRaw.set_index('DateTime Sample Start')    #now use the datetime object as the new index, this sorts the data by date
 
