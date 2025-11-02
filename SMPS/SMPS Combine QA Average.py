@@ -256,7 +256,7 @@ def QualityAssureFile(DataDF ,filepath = 'N'):
 
 
     #use outlier functions to remove outliers
-    HumidityRangeOutliers = FindOutliersRange(dataRaw, 'Aerosol Humidity (%)', 0, 40)
+    HumidityRangeOutliers = FindOutliersRange(dataRaw, 'Aerosol Humidity (%)', 0, 50)
     dataRaw = RemoveOutliers(dataRaw, HumidityRangeOutliers)
     AverageOutliers = FindOutliersAverage(dataRaw, 'Geo. Mean (nm)')
     dataRaw = RemoveOutliers(dataRaw, AverageOutliers)
