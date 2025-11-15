@@ -13,37 +13,53 @@ import numpy as np
 from datetime import datetime
 import smps
 import os
+import requests
+from pathlib import Path
 
 def main():
 
     dataTotal = pd.DataFrame()
-    dataType = input('Enter the type of data you would like to display (Geo. Mean (nm), Geo. Std. Dev, Total Concentration (#/cmÂ³))')
+    dateTotal = pd.DataFrame()
+    dataType = input('Enter the type of data you would like to display (Geo. Mean (nm), Geo. Std. Dev, Total Concentration (#/cmÂ³)): ')
     fileNames = []
-    directory = (r'C:\Users\aydan\VS Code\AppalAIR Code\Raw Data\Compiled')                                                 #opens the compiled folder
-    for entry in os.listdir(directory):                                                                                     #looks at each item in the folder
-        file = os.path.join(directory, entry)                                                                               #selects one item
+    csvpath = Path(input("\nInput the full path of the csv youd like to access:\n"))
+    
+    
+    
+    #directory = (r'C:\Users\aydan\VS Code\AppalAIR Code\Raw Data\Compiled')                                                 #opens the compiled folder
+    for entry in os.listdir(csvpath):                                                                                     #looks at each item in the folder
+        file = os.path.join(csvpath, entry)                                                                               #selects one item
         if os.path.isfile(file):                                                                                            #if the item is a file it:
                     print(file)                                                                                             #prints the file name
                     dataJoin = pd.DataFrame()                                                                               #initializes an empty data frame for joining
-
+                    dateJoin = pd.DataFrame()
                     dataRaw = pd.read_table(                                                                                #reads in the data, skipping over the metaDataLines
                         file,
                         delimiter = ','
                     )
 
                     file = file.split('\\')                                                                                 #formats the name of the file to be just one number
-                    file = file[7]
+                    file = file[-1]
                     file = file.split('.')
                     file = file[0]
                     file = file.split('_')
                     file = file[0]
 
                     fileNames.append(file)                                                                                  #adds file names to a list
-                    dataJoin[file] = dataRaw[dataType]                                                                      #puts current file data of dataType into dataJoin data frame
-                    dataTotal = dataTotal.join(dataJoin, how = 'outer')                                                     #joins dataTotal with dataJoin, fixes truncation of data to first item issue
+                    dateJoin[file] = dataRaw['DateTime Sample Start']
+                    
+                    dataJoin[file] = dataRaw[11:263].sum()                  #was dataJoin[file] = dataRaw[dataType]
+                                                                      #puts current file data of dataType into dataJoin data frame
+                    
+                    dataTotal = dataTotal.join(dataJoin, how = 'outer')                                                     
+                    #joins dataTotal with dataJoin, fixes truncation of data to first item issue
+                    dateTotal = dateTotal.join(dateJoin, how = 'outer')
 
     fileNames = fileNames[3:] + fileNames[:3]
-    dataTotal.boxplot(column = fileNames)
+    
+    dataTotal.plot(x = dataTotal,  y = dateTotal, color='blue', linestyle='--', marker='o', label='My Line')                   
+    #changing was dataTotal.boxplot(column = fileNames)
+    
     plt.xlabel('Month_Year')
     plt.ylabel(dataType)
     plt.title('App_SMPS' + dataType)
