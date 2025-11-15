@@ -31,7 +31,7 @@ def main():
     print(df.head())
 
 
-def fuckingAI():
+def working():
     import pandas as pd
 
     # Load the CSV file into a DataFrame
@@ -41,7 +41,7 @@ def fuckingAI():
     # Define the range of columns to sum
     # Assuming your columns are named 'col_1', 'col_2', ..., 'col_500'
     start_col_index = 11  # Index of the first column (e.g., 'col_1')
-    end_col_index = 216  # Index of the last column (e.g., 'col_500')
+    end_col_index = 237  # Index of the last column (e.g., 'col_500')
 
     # Select the columns within the specified range
     # Using iloc for integer-location based indexing
@@ -58,4 +58,4 @@ def fuckingAI():
     # df.to_csv('output_with_summed_columns.csv', index=False)
 
 if __name__:
-    fuckingAI()
+    working()
