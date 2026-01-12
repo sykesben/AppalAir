@@ -5,6 +5,7 @@ from ebas.domain.basic_domain_logic.time_period import estimate_period_code, \
 import datetime
 import pandas as pd 
 import numpy as np 
+from pathlib import Path
 
 __version__ = '1.00.00'
 
@@ -127,7 +128,7 @@ def set_time_axes(nas, dates):
     #         date_vals.append(pd.to_datetime(dates[i+1]))
     # date_vals.append(pd.to_datetime(dates[-1]))   
     # date_list = [date_vals[i:i + 2] for i in range(0, len(date_vals), 2)]           
-    input(date_list)
+
     nas.sample_times = \
         date_list
         # [(datetime.datetime(2025, 1, 2, 15, 0), datetime.datetime(2025, 10, 31, 23, 0))]
@@ -175,7 +176,7 @@ def set_variables(nas,data_table, flag_table, headers):
     for i in range(len(data_table)):
         values = data_table[i]
         flags = flag_table[i]#[[0] for i in range(len(values))] #
-        input(np.shape(values))
+        # input(np.shape(values))
         # values = np.nan_to_num(data, nan=0)
         metadata = DataObject()
         metadata.comp_name = headers[i]
