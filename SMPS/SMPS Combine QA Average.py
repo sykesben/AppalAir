@@ -298,7 +298,7 @@ def FindOutliersAverage(Data, DataType):
     :return: outliers compiled into a data frame
     :rtype: dataframe 
     """
-    
+
     #define local variables
 
     #rows to be avearaged together
@@ -371,9 +371,9 @@ def FindOutliersRange(Data,Column,Min,Max):
     :param Column: name of the column used to id outliers
     :type Column: string
     :param Max: data greater than this will be an outlier
-    :type Max: intiger
+    :type Max: integer
     :param Min: data less than this will be an outlier
-    :type Min: intiger
+    :type Min: integer
 
     :return: dataframe of Outliers
     :rtype: dataframe

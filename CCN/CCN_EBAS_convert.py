@@ -26,7 +26,7 @@ def set_fileglobal_metadata(nas):
     nas.metadata.revdate = datetime.datetime.now()
     nas.metadata.revision = '1.1a'
     nas.metadata.revdesc = \
-        'initiol revision to ebas, generated with MyDataTool 1.22'
+        'initial revision to ebas, generated with MyDataTool 1.22'
 
     # Data Originator Organisation
     nas.metadata.org = DataObject(
