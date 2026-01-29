@@ -6,6 +6,7 @@ import datetime
 import pandas as pd 
 import numpy as np 
 from pathlib import Path
+import os
 
 __version__ = '1.00.00'
 
@@ -30,7 +31,7 @@ def set_fileglobal_metadata(nas):
 
     # Data Originator Organisation
     nas.metadata.org = DataObject(
-        OR_CODE='APP', #<--- ask jps
+        OR_CODE='APP',
         OR_NAME='Appalachian Atmospheric Interdisciplinary Research Program',
         OR_ACRONYM='AppalAIR', OR_UNIT='Department of Physics & Astronomy',
         OR_ADDR_LINE1='525 Rivers Street', OR_ADDR_LINE2=None,
@@ -80,26 +81,25 @@ def set_fileglobal_metadata(nas):
     nas.metadata.platform_code = 'APP'
     nas.metadata.station_name = u'AppalAIR'
 
-    nas.metadata.station_wdca_id = '2'#<--ASK Dr. Sherman'
-    nas.metadata.station_gaw_id = '2'#<--ASK Dr. Sherman
-    nas.metadata.station_gaw_name = u'AppalAIR'
+    nas.metadata.station_gaw_id = 'APP'#<--ASK Dr. Sherman
+    nas.metadata.station_gaw_name = u'Appalachian State University'
     # nas.metadata.station_airs_id =    # N/A
-    nas.metadata.station_other_ids = '2'#<--ASK Dr. Sherman'
+    # nas.metadata.station_other_ids = '2'#<--ASK Dr. Sherman'
     # nas.metadata.station_state_code =  # N/A
     nas.metadata.station_landuse = 'Residential'
     nas.metadata.station_setting = 'Mountain'
-    nas.metadata.station_gaw_type = '2'#<--ASK Dr. Sherman'
+    nas.metadata.station_gaw_type = 'R'#<--ASK Dr. Sherman'
     nas.metadata.station_wmo_region = 4
-    nas.metadata.station_latitude = 36.212801
-    nas.metadata.station_longitude = -81.692592
-    nas.metadata.station_altitude = 1079
+    nas.metadata.station_latitude = 36.2130012512
+    nas.metadata.station_longitude = -81.6920013428
+    nas.metadata.station_altitude = 1076
 
     # More file global metadata, but those can be overridden per variable
     # See set_variables for examples
     nas.metadata.instr_type = 'CCNC'
-    nas.metadata.lab_code = '2'#<--ASK Dr. Sherman'
+    nas.metadata.lab_code = 'APP'#<--ASK Dr. Sherman'
     nas.metadata.instr_name = 'CCN_100'
-    nas.metadata.method = 'LABCODE_ccn'
+    nas.metadata.method = 'APP_ccn'
     nas.metadata.regime = 'IMG'
     nas.metadata.matrix = 'aerosol'
     #nas.metadata.comp_name   will be set on variable level
@@ -211,6 +211,8 @@ def ebas_genfile(path,data,flag,date, headers):
     set_variables(nas, data, flag, headers)
 
     # write the file:
+    # with open(r"C:\Users\bensy\Documents\Research\EBAStest.txt", "w") as text_file:
+    #     text_file.write(str(nas.variables))
     nas.write(createfiles=True, destdir=path)
     # createfiles=True
     #     Actually creates output files, else the output would go to STDOUT.
