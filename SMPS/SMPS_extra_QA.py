@@ -8,6 +8,8 @@ SMPS processing.
 """IMPORTS"""
 import numpy as np
 import pandas as pd 
+from pathlib import Path
+
 
 def FindOutliersCOV(data, name, avg_mult = 0.4,size = 10):
     """
@@ -99,10 +101,17 @@ def CheckWindow(data, name,start= 0,avg_mult = 0.4,size =10):
     return valid
 
 
-
-data = pd.read_csv(r"C:\Users\bensy\Documents\Research\test_COV.csv")
+filepath = Path(input("\nEnter full path of file you would like to quality assure.\n")) 
+data = pd.read_csv(filepath)
 print(data.columns)
-col = 'Data1'
 
-data = RemoveOutliers(data,col)
-data.to_csv(r"C:\Users\bensy\Documents\Research\test_COV.csv")
+col1 = 'Aerosol Humidity (%)' #Column names the program is looking at to quality assure
+#col2 = 'Geo. Mean (nm)'
+
+data = RemoveOutliers(data,col1)
+#data = RemoveOutliers(data,col2)
+
+ParentPath = filepath.parent
+name = input('\nEnter the desired name of your combined file and include the file type .csv:\n' \
+                     '(This will place the quality assured file in the same folder that held the original file)\n')
+data.to_csv(ParentPath / name)
