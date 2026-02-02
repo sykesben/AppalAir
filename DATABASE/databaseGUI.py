@@ -10,16 +10,17 @@ import pandas as pd
 import os
 import datetime as dt 
 import tkinter as tk
-from tkinter import ttk
+# from tkinter import ttk
 from rangeslider import RangeSliderH 
 
 
-start_date = pd.Timestamp()
+start_date = pd.Timestamp("01/01/2024")
+end_date= pd.Timestamp("01/01/2025")
 root = tk.Tk()
 root.title('AppalAIR Database')
 # Create a StringVar to associate with the l1
 text_var = tk.StringVar()
-root.geometry("800x500")
+root.geometry("700x800")
 text_var.set('AppalAIR Database Access')
 
 
@@ -71,17 +72,24 @@ hSlider = RangeSliderH(root,
                                                               #otherwise a recommended value will be shown through an error message
 hSlider.pack()   # or grid or place method could be used
 def doSomething(*args):
-   print(hLeft.get()) #  Print when variable changes.
-   print(hRight.get()) #  Print when variable changes.
-   dates = 
-def dateConv(float, start_date):
+   # print(dateConv(hLeft.get(), start_date,end_date)) #  Print when variable changes.
+   # print(dateConv(hRight.get(), start_date,end_date)) #  Print when variable changes.
+   date_var.set(f"{dateConv(hLeft.get(), start_date,end_date)}                      {dateConv(hRight.get(), start_date,end_date)}")
+def dateConv(val, start_date,end_date):
+   total_time = pd.Timedelta(end_date- start_date).total_seconds()/3600/24 #days been start and end
+   date = total_time*val
+   date_time = pd.Timestamp(start_date) + pd.Timedelta(date,"days")
+   return pd.to_datetime(date_time).date()
 
+   
 
+date_var = tk.StringVar(root,
+                         f"{dateConv(hLeft.get(), start_date,end_date)}                      {dateConv(hRight.get(), start_date,end_date)}")
 dates = tk.Label(root, 
-                 text=f"{dateConv(hLeft.get(), start_date)}-{dateConv(hRight.get(), start_date)}", 
+                 textvariable=date_var, 
                  anchor=tk.CENTER,          
                  height=3,              
-                 width=15,                            
+                 width=50,                            
                  font=("Times New Roman", 12, "bold"), 
                  cursor="hand2",   
                  fg="Black",  
@@ -94,7 +102,6 @@ dates.pack(pady=0)
 
 hLeft.trace_add('write', doSomething)
 hRight.trace_add('write', doSomething)
-
 
   #return type list of format [ left handle value, right handle value ]
 l3 = tk.Label(root, 
@@ -126,7 +133,46 @@ sb_vars.pack(side=tk.RIGHT, fill=tk.Y)
 lb_vars.config(yscrollcommand=sb_vars.set) 
 sb_vars.config(command=lb_vars.yview)
 
+#create search functionality
+search_var = tk.StringVar()
+vars_entry = tk.Entry(root, textvariable=search_var, font=("Times New Roman", 12, "bold"))
+
+store_slct_vars = []
+
+def update_suggestions_vars(*args):
+    
+   search_term = search_var.get()
+   suggestions = values
+
+   matching_suggestions = [suggestion for suggestion in suggestions if suggestion.lower().startswith(search_term.lower())]
+
+   lb_vars.delete(0, tk.END)
+   for suggestion in matching_suggestions:
+      lb_vars.insert(tk.END, suggestion)
+   for suggestion in suggestions:
+      if suggestion not in matching_suggestions:
+         lb_vars.insert(tk.END, suggestion)
+   for slct in store_slct_vars:
+      i = lb_vars.get(0, "end").index(slct)
+      lb_vars.select_set(i)
+   
+
+def select_vars(event):
+   global store_slct_vars
+   store = []
+   selected = lb_vars.curselection()
+   for var in selected: 
+      keep = lb_vars.get(var)
+      if keep not in store:
+         store.append(keep)
+         store_slct_vars = store
+
+
+search_var.trace("w", update_suggestions_vars)
+lb_vars.bind("<<ListboxSelect>>", select_vars)
+
 l3.pack(pady=0)
+vars_entry.pack()
 lb_vars.pack(side="top",padx = 10, pady = 5,expand = tk.YES, fill = "both")
 
 
@@ -159,7 +205,45 @@ sb_proc.pack(side=tk.RIGHT, fill=tk.Y)
 lb_proc.config(yscrollcommand=sb_proc.set) 
 sb_proc.config(command=lb_proc.yview)
 
+#create search functionality
+search_proc = tk.StringVar()
+proc_entry = tk.Entry(root, textvariable=search_proc, font=("Times New Roman", 12, "bold"))
+
+store_slct_proc = []
+
+def update_suggestions_proc(*args):
+    
+   search_term = search_proc.get()
+   suggestions = process
+
+   matching_suggestions = [suggestion for suggestion in suggestions if suggestion.lower().startswith(search_term.lower())]
+
+   lb_proc.delete(0, tk.END)
+   for suggestion in matching_suggestions:
+      lb_proc.insert(tk.END, suggestion)
+   for suggestion in suggestions:
+      if suggestion not in matching_suggestions:
+         lb_proc.insert(tk.END, suggestion)
+   for slct in store_slct_proc:
+      i = lb_proc.get(0, "end").index(slct)
+      lb_proc.select_set(i)
+   
+
+def select_proc(event):
+   global store_slct_proc
+   store = []
+   selected = lb_proc.curselection()
+   for proc in selected: 
+      keep = lb_proc.get(proc)
+      if keep not in store:
+         store.append(keep)
+         store_slct_proc = store
+
+search_proc.trace("w", update_suggestions_proc)
+lb_proc.bind("<<ListboxSelect>>", select_proc)
+
 l4.pack(pady=0)
+proc_entry.pack()
 lb_proc.pack(side="top",padx = 10, pady = 5,
           expand = tk.YES, fill = "both")
 
