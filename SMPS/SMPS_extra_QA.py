@@ -39,10 +39,15 @@ def FindOutliersCOV(data, name, avg_mult = 0.4,size = 10):
                 return np.nan
         else:
             return np.nan
+    def KeptCheck(x):
+        return x.isnull().sum() * 100 / len(x)
+
     #itterating through each row in the provided data frame
     Outliers = data[name].rolling(window=size).apply(VarCheck,raw =True)
-    # input(Outliers)
-    return Outliers    #return the outliers as a series the same size as data[name] with only outliers 
+    perc_kept = Outliers.rolling(window='1h').apply(KeptCheck,raw =False)
+    data['outliers'] = Outliers
+    data['%kept']= perc_kept
+    return data   #return the outliers as a series the same size as data[name] with only outliers 
 
 def RemoveOutliers(data, name, avg_mult = 0.4,size= 10):
     """
@@ -72,9 +77,14 @@ def RemoveOutliers(data, name, avg_mult = 0.4,size= 10):
                 return 0
         else:
             return 0
+    def KeptCheck(x):
+        return np.count_nonzero(x==0)/len(x)*100
     #itterating through each row in the provided data frame
     print(data[name].rolling(window=size).apply(VarCheck,raw =True))
+    data['out'] = data[name].rolling(window=size).apply(VarCheck,raw =True)
+    data['% kept'] = data['out'].rolling(window='1h').apply(KeptCheck,raw =True)
     data = data[data[name].rolling(window=size).apply(VarCheck,raw =True)==0]
+    data = data.drop(columns ='out')
     return data   #return the dataframe with the outlier rows removed
     
 def CheckWindow(data, name,start= 0,avg_mult = 0.4,size =10):
@@ -99,6 +109,7 @@ def CheckWindow(data, name,start= 0,avg_mult = 0.4,size =10):
     start_avg = data[name].iloc[start:start+size].mean()
     valid = np.abs(start_avg-total_avg) > avg_mult*total_avg
     return valid
+
 
 
 filepath = Path(input("\nEnter full path of file you would like to quality assure.\n")) 
