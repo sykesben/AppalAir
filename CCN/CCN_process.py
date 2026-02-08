@@ -33,6 +33,7 @@ def readin(path):
     """
     data = pd.read_csv(path,skiprows=lambda x:x==1)#read in csv skipping first row of verbose column headings
     data=data.set_index('Date String (YYYY-MM-DD hh:mm:ss) UTC')
+    data.index.names = ['Datetime UTC']
     data.index = pd.to_datetime(data.index)
     cols_rename = {'particle number concentration (cm-3)': 'N(cm-3)','inlet temperature (°C)': 'T(C)_inlet','temperature of TEC 1 (°C)':'T1(C)','temperature of TEC 2 (°C)':'T2(C)'
                    ,'temperature of TEC 3 (°C)':'T3(C)','sample temperature (°C)': 'T(C)_sample','OPC temperature (°C)':'T(C)_OPC','nafion temperature (°C)':'T(C)_nafion',
@@ -392,14 +393,18 @@ def CCN_EBAS(file_in,folder_out, ss_vals):
     NONE
     """
     df = pd.read_csv(file_in)#read in csv skipping first row of verbose column headings
-    df=df.set_index('Date String (YYYY-MM-DD hh:mm:ss) UTC')
+    df=df.set_index('Datetime UTC')
+
     df = df.fillna(0)
     df.index = pd.to_datetime(df.index)
     dates= df.index.to_list()
     # input(np.isnan(np.sum(df.values.tolist())))
     ccn_corr_cols = [f'N(cm-3)_cor_setpt{ss}' for ss in ss_vals]
-    ccn_cols = [f'ccnc[ss={sp}]' for sp in ss_vals]
+    ccn_cols = [f'cloud_condensation_nuclei_number_concentration, 1/cm3, SS={sp}%' for sp in ss_vals]
     data = df[ccn_corr_cols].values.tolist()
+    # df['flag'] = [000]
+    # df['flag']['Q_flag' ==1] = [662]
+    # df['flag']['integrity_flag' == 1] = [111]
     flags = [[[000] for j in range(len(data[i]))] for i in range(len(dates))]
     data =  list(map(list, zip(*data)))
     flags = list(map(list, zip(*flags)))

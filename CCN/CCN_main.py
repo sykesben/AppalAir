@@ -19,7 +19,7 @@ import time
 from CCN_process import *
 
 dev = True
-file = expanduser("~\Documents\Research\CCN_Clean_2025_1min.csv")
+file = expanduser("~/Documents/Research/CCN_Clean_2025_1min.csv")
 ini_file = expanduser("~/Documents/Research/CCN 100.ini")
 file_out = expanduser("~/Documents/Research/CCN_Processed_2025_1hr.csv")
 ebas_out = expanduser("~/Documents/Research")
