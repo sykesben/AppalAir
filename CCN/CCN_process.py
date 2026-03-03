@@ -32,8 +32,15 @@ def readin(path):
     cols_rename : [dict] dictionary with verbose definition as the key and column name as the value
     """
     data = pd.read_csv(path,skiprows=lambda x:x==1)#read in csv skipping first row of verbose column headings
-    data=data.set_index('Date String (YYYY-MM-DD hh:mm:ss) UTC')
-    data.index.names = ['Datetime UTC']
+    try:
+        data=data.set_index('Datetime(UTC)')
+    except:
+        try:
+            data=data.set_index('Datetime UTC')
+            data.index.names = ['Datetime(UTC)']
+        except:
+            data=data.set_index('Date String (YYYY-MM-DD hh:mm:ss) UTC')
+            data.index.names = ['Datetime(UTC)']
     data.index = pd.to_datetime(data.index)
     cols_rename = {'particle number concentration (cm-3)': 'N(cm-3)','inlet temperature (°C)': 'T(C)_inlet','temperature of TEC 1 (°C)':'T1(C)','temperature of TEC 2 (°C)':'T2(C)'
                    ,'temperature of TEC 3 (°C)':'T3(C)','sample temperature (°C)': 'T(C)_sample','OPC temperature (°C)':'T(C)_OPC','nafion temperature (°C)':'T(C)_nafion',
@@ -377,6 +384,30 @@ def stp_corr(df,cols,Tstp = 273.15, Pstp= 1013.25):
         df[new_col] = df[col]*Pstp/Pact*Tact/Tstp
     return df
 
+def flow_corr(df, start_date,end_date, col, ratio, int0, int1):
+    r"""
+    Applies a correction to the flow value for vol conc adjustement
+    ----------
+    Paramaters
+    ++++++++++
+    df : [pd.DataFrame] Data to process.  
+    start_date : [pd.Datetime] Start date to begin the linear correction
+    end_date : [pd.Datetime] End date to stop the linear correction
+    col : [str] Flow column
+    ratio : [float] ratio between slopes for corr
+    int0 : [float] intercept from lin corr 0
+    int1 : [float] intercept from lin corr 1 
+
+    Returns
+    +++++++
+    df : [Pandas.DataFrame] Original Dataframe with Q corr column 
+    """
+    dt = df.index.to_numpy()
+    corr = (ratio*(df[col].to_numpy()*1000- int0)+int1)*0.001
+    raw = df[col].to_numpy()
+    vals = np.where((dt>start_date)&(dt<end_date),corr,raw)
+    df[f'corr_{col}'] = vals
+    return df
 
 def CCN_EBAS(file_in,folder_out, ss_vals):
     """
@@ -393,14 +424,15 @@ def CCN_EBAS(file_in,folder_out, ss_vals):
     NONE
     """
     df = pd.read_csv(file_in)#read in csv skipping first row of verbose column headings
-    df=df.set_index('Datetime UTC')
+    df=df.set_index('Datetime(UTC)')
 
     df = df.fillna(0)
     df.index = pd.to_datetime(df.index)
     dates= df.index.to_list()
     # input(np.isnan(np.sum(df.values.tolist())))
-    ccn_corr_cols = [f'N(cm-3)_cor_setpt{ss}' for ss in ss_vals]
-    ccn_cols = [f'cloud_condensation_nuclei_number_concentration, 1/cm3, SS={sp}%' for sp in ss_vals]
+    ccn_corr_cols = [f'N(cm-3)_cor_stp_setpt{ss}' for ss in ss_vals]
+    ccn_header = [f'cloud_condensation_nuclei_number_concentration, 1/cm3, SS={sp}%' for sp in ss_vals]
+    ccn_cols = [f'ccnc[ss={sp}]' for sp in ss_vals]
     data = df[ccn_corr_cols].values.tolist()
     # df['flag'] = [000]
     # df['flag']['Q_flag' ==1] = [662]
@@ -419,4 +451,4 @@ def CCN_EBAS(file_in,folder_out, ss_vals):
     date_list.append(pd.to_datetime(dates[-1]))  
     # data = np.nan_to_num(data, nan=1, posinf=1e6, neginf=-1e6)
     # input(np.isnan(np.sum(data)))
-    ebas_genfile(folder_out, data, flags, dates, ccn_cols)
+    ebas_genfile(folder_out, data, flags, dates, ccn_header, ccn_cols)
