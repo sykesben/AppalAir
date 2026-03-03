@@ -93,6 +93,7 @@ def set_fileglobal_metadata(nas):
     nas.metadata.station_latitude = 36.2130012512
     nas.metadata.station_longitude = -81.6920013428
     nas.metadata.station_altitude = 1076
+    
 
     # More file global metadata, but those can be overridden per variable
     # See set_variables for examples
@@ -102,8 +103,10 @@ def set_fileglobal_metadata(nas):
     nas.metadata.method = 'APP_ccn'
     nas.metadata.regime = 'IMG'
     nas.metadata.matrix = 'aerosol'
-    #nas.metadata.comp_name   will be set on variable level
-    #nas.metadata.unit        will be set on variable level
+    # nas.metadata.comp_name ='cloud_condensation_nuclei_number_concentration'
+    # nas.metadata.unit  ='1/cm3'    #will be set on variable level
+    nas.metadata.vol_std_temp = 273.15 
+    nas.metadata.vol_std_pressure = 1013.25 
     nas.metadata.statistics = 'arithmetic mean'
     nas.metadata.datalevel = '2'
 
@@ -163,7 +166,7 @@ def set_time_axes(nas, dates):
     nas.metadata.reference_date = \
         datetime.datetime(nas.sample_times[0][1].year, 1, 1)
 
-def set_variables(nas,data_table, flag_table, headers):
+def set_variables(nas,data_table, flag_table, headers,cols):
     """
     Set metadata and data for all variables for the EbasNasaAmes file object.
 
@@ -181,10 +184,11 @@ def set_variables(nas,data_table, flag_table, headers):
         metadata = DataObject()
         metadata.comp_name = headers[i]
         metadata.unit = '1/cm3'
+        metadata.title = cols[i]
         nas.variables.append(DataObject(values_=values, flags=flags, flagcol=True,
                                     metadata=metadata))
 
-def ebas_genfile(path,data,flag,date, headers):
+def ebas_genfile(path,data,flag,date, headers,cols):
     """
     Main program for ebas_flatcsv
     Created for lexical scoping.
@@ -208,7 +212,7 @@ def ebas_genfile(path,data,flag,date, headers):
     # Set the time axes and related metadata
     set_time_axes(nas,date)
     # Set metadata and data for all variables
-    set_variables(nas, data, flag, headers)
+    set_variables(nas, data, flag, headers,cols)
 
     # write the file:
     # with open(r"C:\Users\bensy\Documents\Research\EBAStest.txt", "w") as text_file:
