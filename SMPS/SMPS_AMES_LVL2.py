@@ -186,8 +186,8 @@ def set_fileglobal_metadata(nas):
     #nas.metadata.qm_doc_date=''
     #nas.metadata.qm_doc_url=''
     
-    nas.metadata.acknowledgements='Request acknowledgment details from data originator'
-    nas.metadata.comment='none'
+    nas.metadata.acknowledgements='Request acknowledgment details from data originator'#not ready
+    nas.metadata.comment='none'#not ready
 
 def set_time_axes(nas):
     """
