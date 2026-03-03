@@ -1,5 +1,5 @@
 """
-Date: 1/28/26
+Date: 3/3/26
 Author: Ben Sykes
 Purpose: generate plots between CCN and SMPS
 """
@@ -8,14 +8,7 @@ Purpose: generate plots between CCN and SMPS
 import numpy as np
 import pandas as pd 
 pd.set_option('mode.chained_assignment', None)
-import os
-import datetime as dt 
-from scipy.stats import linregress
-import matplotlib.pyplot as plt
-from pathlib import Path
-from os.path import expanduser 
-from scipy.optimize import least_squares as LSfit
-
+from SMPSvCCNplot_gen import line_call, hist_call,scat_call
 
 def smps_data(files,freq='d',ss = [0.1,0.7]):
     '''
@@ -23,7 +16,7 @@ def smps_data(files,freq='d',ss = [0.1,0.7]):
     on comparable ss% values.
     ----------
 
-    Paramaters
+    Parameters
     ++++++++++
     files : [list of str] Paths to SMPS files
     freq : [str] Resample frequency for DataFrame
@@ -63,7 +56,7 @@ def ccn_data(files, freq ='d', ss = [0.1,0.7]):
     for plotting or further analysis
     ----------
 
-    Paramaters
+    Parameters
     ++++++++++
     files : [list of str] Paths to CCN files
     freq : [str] Resample frequency for DataFrame (default = 'd')
@@ -103,7 +96,7 @@ def comb_files(smps_files,ccn_files, ss = [0.1,0.7], freq = 'd'):
     from both for plotting or further analysis
     ----------
 
-    Paramaters
+    Parameters
     ++++++++++
     smps_files : [list of str] Paths to SMPS files
     ccn_files : [list of str] Paths to CCN files
@@ -119,13 +112,13 @@ def comb_files(smps_files,ccn_files, ss = [0.1,0.7], freq = 'd'):
     data = pd.merge(ccn[ccn_cols],smps[smps_cols],left_index = True, right_index = True)
     return data
 
-def plot_gen(data, mode = 0,vars = ['ss'], date = 0, group ='all'):
+def plot_gen(data, mode = 0,vars = ['ss'], date = 0, group ='all', drop0s = True):
     '''
     Takes in a dataframe of SMPS and CCN data and generates interactive plots based on 
     the chosen columns and mode.
     ----------
 
-    Paramaters
+    Parameters
     ++++++++++
     data : [DataFrame] Combined CCN and SMPS data
     mode : [str] Plotting style (line,scat,hist) (default = 0, takes user input)
@@ -138,6 +131,7 @@ def plot_gen(data, mode = 0,vars = ['ss'], date = 0, group ='all'):
             + 'year' - generate 1 plot per year if multiple years in data
             + 'season' - generate 1 plot per season
             + 'month' - generate 1 plot per month
+    drop0s : [bool] Drop zeros in CCN data to clean(default = True)
 
     Returns
     ++++++++++
@@ -152,9 +146,9 @@ def plot_gen(data, mode = 0,vars = ['ss'], date = 0, group ='all'):
     data['year'] = data.index.year.to_numpy()
     data['month']= data.index.month.to_numpy()
     data['season'] = [seasons(n) for n in data.index.month.to_numpy()]
-    input(data.season)
     slct = {}
     cols = data.columns.to_numpy()
+    ccn_cols =[]
     if date != 0: #if date is passed, split the data using the passed date range
         if isinstance(date, list):
             if len(date) > 1:
@@ -176,203 +170,86 @@ def plot_gen(data, mode = 0,vars = ['ss'], date = 0, group ='all'):
             for ss in ss_vals:
                 ccn_col = f'N(cm-3)_cor_setpt{ss}'
                 smps_col = f'>{ss2nm[ss]}nm'
+                ccn_cols.append(ccn_col)
                 slct[ccn_col] = smps_col
         else:
             ccn_col = f'N(cm-3)_cor_setpt{choice}'
             smps_col = f'>{ss2nm[choice]}nm'
             slct[ccn_col] = smps_col
+            ccn_cols.append(ccn_col)
+    if drop0s:
+        for c in ccn_cols:
+            drop_indices = data[data[c] == 0].index   
+            data = data.drop(drop_indices)
     if ('Q' in vars) & (mode == 'line'): slct['Q(lpm)_sample'] = 0
     if ('T' in vars) & (mode == 'line'): slct['T(C)_sample'] = 0 
     if group =='all':
         if mode == 'line': ## Line plot SMPS and CCN vs date
-            date = data.index.to_numpy()
-            y = []
-            leg = []
-            for ccn_c in list(slct.keys()):
-                smps_c = slct[ccn_c]
-                y.append(data[ccn_c])
-                leg.append(ccn_c)
-                if smps_c != 0:
-                    y.append(data[smps_c])
-                    leg.append(smps_c)
-            line_plot(date,y,leg)
-
+            line_call(data,slct)
         elif mode == 'scat': # scatter plot SMPS vs CCN
-            x = []
-            y = []
-            leg = []
-            for ccn_c in list(slct.keys()):
-                smps_c = slct[ccn_c]
-                y.append(data[ccn_c].to_numpy())
-                x.append(data[smps_c].to_numpy())
-                mask = ~np.isnan(data[smps_c].to_numpy()) & ~np.isnan(data[ccn_c].to_numpy())
-                res = linregress(data[smps_c].to_numpy()[mask],data[ccn_c].to_numpy()[mask])
-                m,b,r = res.slope,res.intercept,res.rvalue**2
-                leg.append(f'{ccn_c.replace('cm-3)_cor_setpt', 'ss%=')}) vs N{smps_c} | {m:.2f}x + {b:.2f} | R2= {r:.4f} ')
-            scat_plot(x,y,leg)
-
+            scat_call(data, slct)
         elif mode == 'hist': #histogram
-            y= []
-            leg = []
-            for ccn_c in list(slct.keys()):
-                smps_c = slct[ccn_c]
-                y.append(data[ccn_c].to_numpy())
-                leg.append(f'{ccn_c.replace('cm-3)_cor_setpt', 'ss%=')})')
-                y.append(data[smps_c].to_numpy())
-                leg.append(f'N{smps_c}')
-            hist_plot(y,leg)
-    if group == 'year':
-        years ={}
+            hist_call(data,slct)
+    elif group == 'year':
         if mode == 'line': ## Line plot SMPS and CCN vs date
             for year in data.year.unique():
                 Ydata=data[data.year == year]
-                date = Ydata.index.to_numpy()
-                y = []
-                leg = []
-                for ccn_c in list(slct.keys()):
-                    smps_c = slct[ccn_c]
-                    y.append(Ydata[ccn_c])
-                    leg.append(ccn_c)
-                    if smps_c != 0:
-                        y.append(Ydata[smps_c])
-                        leg.append(smps_c)
-                line_plot(date,y,leg)
+                append=f"{year}"
+                line_call(Ydata,slct,append)
         elif mode == 'scat': # scatter plot SMPS vs CCN
             for year in data.year.unique():
                 Ydata=data[data.year == year]
-                x = []
-                y = []
-                leg = []
-                for ccn_c in list(slct.keys()):
-                    smps_c = slct[ccn_c]
-                    y.append(Ydata[ccn_c].to_numpy())
-                    x.append(Ydata[smps_c].to_numpy())
-                    mask = ~np.isnan(Ydata[smps_c].to_numpy()) & ~np.isnan(Ydata[ccn_c].to_numpy())
-                    res = linregress(Ydata[smps_c].to_numpy()[mask],Ydata[ccn_c].to_numpy()[mask])
-                    m,b,r = res.slope,res.intercept,res.rvalue**2
-                    leg.append(f'{ccn_c.replace('cm-3)_cor_setpt', 'ss%=')}) vs N{smps_c} | {m:.2f}x + {b:.2f} | R2= {r:.4f} ')
-                scat_plot(x,y,leg)
+                append=f"{year}"
+                m,b,cor = scat_call(Ydata, slct,append)
         elif mode == 'hist': #histogram
             for year in data.year.unique():
                 Ydata=data[data.year == year]
-                y= []
-                leg = []
-                for ccn_c in list(slct.keys()):
-                    smps_c = slct[ccn_c]
-                    y.append(Ydata[ccn_c].to_numpy())
-                    leg.append(f'{ccn_c.replace('cm-3)_cor_setpt', 'ss%=')})')
-                    y.append(Ydata[smps_c].to_numpy())
-                    leg.append(f'N{smps_c}')
-                hist_plot(y,leg)
-            
-
-
-def line_plot(x,y,legs):
-    plt.ion()
-    fig, ax = plt.subplots()
-    lines = []
-    for i in range(len(y)):
-        L, = ax.plot(x,y[i], label = legs[i])
-        lines.append(L)
-    leg = ax.legend()
-    lined = dict()
-    for legline, origline in zip(leg.get_lines(), lines):
-        legline.set_picker(5)  # 5 pts tolerance
-        lined[legline] = origline
-
-    def onpick(event):
-        # on the pick event, find the orig line corresponding to the
-        # legend proxy line, and toggle the visibility
-        legline = event.artist
-        origline = lined[legline]
-        vis = not origline.get_visible()
-        origline.set_visible(vis)
-        # Change the alpha on the line in the legend so we can see what lines
-        # have been toggled
-        if vis:
-            legline.set_alpha(1.0)
-        else:
-            legline.set_alpha(0.2)
-        fig.canvas.draw()
-
-    fig.canvas.mpl_connect('pick_event', onpick)
-    ax.set_ylabel('N [#/cm^3]')
-    ax.set_xlabel('Date')
-    ax.set_title(f"Comparison of CCN and SMPS data")
-    input('Press enter to exit plot...')
-    plt.ioff()
-
-def scat_plot(x,y,legs):
-    plt.ion()
-    fig, ax = plt.subplots()
-    lines = []
-    for i in range(len(y)):
-        L, = ax.plot(x[i],y[i], label = legs[i],ls = '', marker = '*')
-        lines.append(L)
-    leg = ax.legend()
-    lined = dict()
-    for legline, origline in zip(leg.get_lines(), lines):
-        legline.set_picker(5)  # 5 pts tolerance
-        lined[legline] = origline
-
-    def onpick(event):
-        # on the pick event, find the orig line corresponding to the
-        # legend proxy line, and toggle the visibility
-        legline = event.artist
-        origline = lined[legline]
-        vis = not origline.get_visible()
-        origline.set_visible(vis)
-        # Change the alpha on the line in the legend so we can see what lines
-        # have been toggled
-        if vis:
-            legline.set_alpha(1.0)
-        else:
-            legline.set_alpha(0.2)
-        fig.canvas.draw()
-
-    fig.canvas.mpl_connect('pick_event', onpick)
-    ax.set_ylabel('CCN [#/cm^3]')
-    ax.set_xlabel('SMPS [#/cm^3]')
-    ax.set_title(f"Comparison of CCN and SMPS data")
-    input('Press enter to exit plot...')
-    plt.ioff()
-
-def hist_plot(y,legs):
-    plt.ion()
-    fig, ax = plt.subplots()
-    art = []
-    for i in range(len(y)):
-        # input(ax.hist(y[i], label = legs[i]),alpha=0.5)
-        n,b,a = ax.hist(y[i], label = legs[i],alpha=0.5)
-        art.append(a)
-    leg = ax.legend()
-    lined = dict()
-    for legline, origline in zip(leg.get_lines(), art):
-        input(legline)
-        legline.set_picker(5)  # 5 pts tolerance
-        input(origline)
-        lined[legline] = origline
-
-    def onpick(event):
-        # on the pick event, find the orig line corresponding to the
-        # legend proxy line, and toggle the visibility
-        legline = event.artist
-        origline = lined[legline]
-        vis = not origline.get_visible()
-        origline.set_visible(vis)
-        # Change the alpha on the line in the legend so we can see what lines
-        # have been toggled
-        if vis:
-            legline.set_alpha(1.0)
-        else:
-            legline.set_alpha(0.2)
-        fig.canvas.draw()
-
-    fig.canvas.mpl_connect('pick_event', onpick)
-    ax.set_ylabel('N [#/cm^3]')
-    ax.set_title(f"Comparison of CCN and SMPS data")
-    input('Press enter to exit plot...')
-    plt.ioff()
+                append=f"{year}"
+                hist_call(Ydata,slct,append)
+    elif group == 'month':
+        if mode == 'line': ## Line plot SMPS and CCN vs date
+            for year in data.year.unique():
+                Ydata=data[data.year == year]
+                for month in Ydata.month.unique():
+                    Mdata=Ydata[Ydata.month == month]
+                    append=f"{month}/{year}"
+                    line_call(Mdata,slct,append)
+        elif mode == 'scat': # scatter plot SMPS vs CCN
+            for year in data.year.unique():
+                Ydata=data[data.year == year]
+                for month in Ydata.month.unique():
+                    Mdata=Ydata[Ydata.month == month]
+                    append=f"{month}/{year}"
+                    m,b,cor = scat_call(Mdata, slct, append)
+        elif mode == 'hist': #histogram
+            for year in data.year.unique():
+                Ydata=data[data.year == year]
+                for month in Ydata.month.unique():
+                    Mdata=Ydata[Ydata.month == month]
+                    append=f"{month}/{year}"
+                    hist_call(Mdata,slct,append)
+    elif group == 'season':
+        if mode == 'line': ## Line plot SMPS and CCN vs date
+            for year in data.year.unique():
+                Ydata=data[data.year == year]
+                for season in Ydata.season.unique():
+                    Sdata=Ydata[Ydata.season == season]
+                    append=f"{season} {year}"
+                    line_call(Sdata,slct,append)
+        elif mode == 'scat': # scatter plot SMPS vs CCN
+            for year in data.year.unique():
+                Ydata=data[data.year == year]
+                for season in Ydata.season.unique():
+                    Sdata=Ydata[Ydata.season == season]
+                    append=f"{season} {year}"
+                    m,b,cor = scat_call(Sdata,slct, append)
+        elif mode == 'hist': #histogram
+            for year in data.year.unique():
+                Ydata=data[data.year == year]
+                for season in Ydata.season.unique():
+                    Sdata=Ydata[Ydata.season== season]
+                    append=f"{season} {year}"
+                    hist_call(Sdata,slct,append)
 
 
 if __name__ == '__main__':
@@ -382,4 +259,4 @@ if __name__ == '__main__':
     out = input("Enter filepath to export data as a csv, or press 'enter' to skip: ")
     if out != '':
         data.to_csv(out)
-    plot_gen(data, group ='Seasonal')
+    plot_gen(data, group ='month',mode='scat')
