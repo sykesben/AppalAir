@@ -14,6 +14,7 @@ from scipy.stats import linregress
 import matplotlib.pyplot as plt
 from pathlib import Path
 from os.path import expanduser 
+from scipy.optimize import least_squares as LSfit
 
 
 def smps_data(files,freq='d',ss = [0.1,0.7]):
@@ -77,7 +78,10 @@ def ccn_data(files, freq ='d', ss = [0.1,0.7]):
     for i in range(len(files)): #read in smps files and combine
         f = files[i]
         file =pd.read_csv(f) #read in ccn file
-        file=file.set_index('Datetime UTC') #Set index
+        try:
+            file=file.set_index('Datetime(UTC)') #Set index
+        except:
+            file=file.set_index('Datetime UTC') #Set index
         if i == 0:
             ccn = file
         else:
@@ -115,7 +119,7 @@ def comb_files(smps_files,ccn_files, ss = [0.1,0.7], freq = 'd'):
     data = pd.merge(ccn[ccn_cols],smps[smps_cols],left_index = True, right_index = True)
     return data
 
-def plot_gen(data, mode = 0,vars = ['ss'], date = 0):
+def plot_gen(data, mode = 0,vars = ['ss'], date = 0, group ='all'):
     '''
     Takes in a dataframe of SMPS and CCN data and generates interactive plots based on 
     the chosen columns and mode.
@@ -129,12 +133,26 @@ def plot_gen(data, mode = 0,vars = ['ss'], date = 0):
     date : [list of str] date range for plotting (default = 0, takes user input)
             + if date = "date" or ['date'], assumed to be start date ['date':]
             + if date = ['date0','date1'], use dates contained within daterange
+    group : [str] Time period to generate plots for (default = 'all')
+            + 'all' - plot over whole time period given
+            + 'year' - generate 1 plot per year if multiple years in data
+            + 'season' - generate 1 plot per season
+            + 'month' - generate 1 plot per month
 
     Returns
     ++++++++++
     none 
     '''
     ss2nm = {'0.1':200, '0.6':100, '0.7':80}
+    def seasons(num):
+        if num in [12,1,2]: return 'winter'
+        elif num in [3,4,5]: return 'spring'
+        elif num in [6,7,8]: return 'summer'
+        else: return 'autumn' 
+    data['year'] = data.index.year.to_numpy()
+    data['month']= data.index.month.to_numpy()
+    data['season'] = [seasons(n) for n in data.index.month.to_numpy()]
+    input(data.season)
     slct = {}
     cols = data.columns.to_numpy()
     if date != 0: #if date is passed, split the data using the passed date range
@@ -165,45 +183,89 @@ def plot_gen(data, mode = 0,vars = ['ss'], date = 0):
             slct[ccn_col] = smps_col
     if ('Q' in vars) & (mode == 'line'): slct['Q(lpm)_sample'] = 0
     if ('T' in vars) & (mode == 'line'): slct['T(C)_sample'] = 0 
+    if group =='all':
+        if mode == 'line': ## Line plot SMPS and CCN vs date
+            date = data.index.to_numpy()
+            y = []
+            leg = []
+            for ccn_c in list(slct.keys()):
+                smps_c = slct[ccn_c]
+                y.append(data[ccn_c])
+                leg.append(ccn_c)
+                if smps_c != 0:
+                    y.append(data[smps_c])
+                    leg.append(smps_c)
+            line_plot(date,y,leg)
 
-    if mode == 'line': ## Line plot SMPS and CCN vs date
-        date = data.index.to_numpy()
-        y = []
-        leg = []
-        for ccn_c in list(slct.keys()):
-            smps_c = slct[ccn_c]
-            y.append(data[ccn_c])
-            leg.append(ccn_c)
-            if smps_c != 0:
-                y.append(data[smps_c])
-                leg.append(smps_c)
-        line_plot(date,y,leg)
+        elif mode == 'scat': # scatter plot SMPS vs CCN
+            x = []
+            y = []
+            leg = []
+            for ccn_c in list(slct.keys()):
+                smps_c = slct[ccn_c]
+                y.append(data[ccn_c].to_numpy())
+                x.append(data[smps_c].to_numpy())
+                mask = ~np.isnan(data[smps_c].to_numpy()) & ~np.isnan(data[ccn_c].to_numpy())
+                res = linregress(data[smps_c].to_numpy()[mask],data[ccn_c].to_numpy()[mask])
+                m,b,r = res.slope,res.intercept,res.rvalue**2
+                leg.append(f'{ccn_c.replace('cm-3)_cor_setpt', 'ss%=')}) vs N{smps_c} | {m:.2f}x + {b:.2f} | R2= {r:.4f} ')
+            scat_plot(x,y,leg)
 
-    elif mode == 'scat': # scatter plot SMPS vs CCN
-        x = []
-        y = []
-        leg = []
-        for ccn_c in list(slct.keys()):
-            smps_c = slct[ccn_c]
-            y.append(data[ccn_c].to_numpy())
-            x.append(data[smps_c].to_numpy())
-            mask = ~np.isnan(data[smps_c].to_numpy()) & ~np.isnan(data[ccn_c].to_numpy())
-            res = linregress(data[smps_c].to_numpy()[mask],data[ccn_c].to_numpy()[mask])
-            m,b,r = res.slope,res.intercept,res.rvalue**2
-            leg.append(f'{ccn_c.replace('cm-3)_cor_setpt', 'ss%=')}) vs N{smps_c} | {m:.2f}x + {b:.2f} | R2= {r:.4f} ')
-        scat_plot(x,y,leg)
+        elif mode == 'hist': #histogram
+            y= []
+            leg = []
+            for ccn_c in list(slct.keys()):
+                smps_c = slct[ccn_c]
+                y.append(data[ccn_c].to_numpy())
+                leg.append(f'{ccn_c.replace('cm-3)_cor_setpt', 'ss%=')})')
+                y.append(data[smps_c].to_numpy())
+                leg.append(f'N{smps_c}')
+            hist_plot(y,leg)
+    if group == 'year':
+        years ={}
+        if mode == 'line': ## Line plot SMPS and CCN vs date
+            for year in data.year.unique():
+                Ydata=data[data.year == year]
+                date = Ydata.index.to_numpy()
+                y = []
+                leg = []
+                for ccn_c in list(slct.keys()):
+                    smps_c = slct[ccn_c]
+                    y.append(Ydata[ccn_c])
+                    leg.append(ccn_c)
+                    if smps_c != 0:
+                        y.append(Ydata[smps_c])
+                        leg.append(smps_c)
+                line_plot(date,y,leg)
+        elif mode == 'scat': # scatter plot SMPS vs CCN
+            for year in data.year.unique():
+                Ydata=data[data.year == year]
+                x = []
+                y = []
+                leg = []
+                for ccn_c in list(slct.keys()):
+                    smps_c = slct[ccn_c]
+                    y.append(Ydata[ccn_c].to_numpy())
+                    x.append(Ydata[smps_c].to_numpy())
+                    mask = ~np.isnan(Ydata[smps_c].to_numpy()) & ~np.isnan(Ydata[ccn_c].to_numpy())
+                    res = linregress(Ydata[smps_c].to_numpy()[mask],Ydata[ccn_c].to_numpy()[mask])
+                    m,b,r = res.slope,res.intercept,res.rvalue**2
+                    leg.append(f'{ccn_c.replace('cm-3)_cor_setpt', 'ss%=')}) vs N{smps_c} | {m:.2f}x + {b:.2f} | R2= {r:.4f} ')
+                scat_plot(x,y,leg)
+        elif mode == 'hist': #histogram
+            for year in data.year.unique():
+                Ydata=data[data.year == year]
+                y= []
+                leg = []
+                for ccn_c in list(slct.keys()):
+                    smps_c = slct[ccn_c]
+                    y.append(Ydata[ccn_c].to_numpy())
+                    leg.append(f'{ccn_c.replace('cm-3)_cor_setpt', 'ss%=')})')
+                    y.append(Ydata[smps_c].to_numpy())
+                    leg.append(f'N{smps_c}')
+                hist_plot(y,leg)
+            
 
-    elif mode == 'hist': #histogram
-        date = []
-        y= []
-        leg = []
-        for ccn_c in list(slct.keys()):
-            smps_c = slct[ccn_c]
-            y.append(data[ccn_c].to_numpy())
-            leg.append(f'{ccn_c.replace('cm-3)_cor_setpt', 'ss%=')})')
-            y.append(data[smps_c].to_numpy())
-            leg.append(f'N{smps_c}')
-        hist_plot(y,leg)
 
 def line_plot(x,y,legs):
     plt.ion()
@@ -314,10 +376,10 @@ def hist_plot(y,legs):
 
 
 if __name__ == '__main__':
-    smps = list(input('Provide paths to SMPS file(s). Seperate multiples with a comma: ').split(','))
-    ccn = list(input('Provide paths to CCN file(s). Seperate multiples with a comma: ').split(','))
-    data = comb_files([smps,ccn])
+    smps = [r"C:\Users\bensy\Documents\Research\SMPS_NumberSizeDist_2025_1hr.csv"]#list(input('Provide paths to SMPS file(s). Seperate multiples with a comma: ').replace('"','').split(','))
+    ccn = [r"C:\Users\bensy\Documents\Research\CCN_Processed_2025_1hr.csv"]#list(input('Provide paths to CCN file(s). Seperate multiples with a comma: ').replace('"','').split(','))
+    data = comb_files(smps,ccn)
     out = input("Enter filepath to export data as a csv, or press 'enter' to skip: ")
     if out != '':
         data.to_csv(out)
-    plot_gen(data)
+    plot_gen(data, group ='Seasonal')
