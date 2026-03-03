@@ -64,7 +64,7 @@ def set_fileglobal_metadata(nas):
     nas.metadata.type = 'TU'
   
     # Revision information
-    nas.metadata.startdate = datetime.datetime(2016, 1, 1, 00, 00, 00) #I am not sure about the time format
+    nas.metadata.startdate = datetime.datetime(2016, 1, 1, 00, 00, 00)#not ready #I am not sure about the time format
 
 
     nas.metadata.datalevel = '1'
@@ -75,68 +75,63 @@ def set_fileglobal_metadata(nas):
     
     # Data Originator Organisation
     nas.metadata.org = DataObject(
-        OR_CODE='GR05L',
-        OR_NAME='NCSR Demokritos',
-        OR_ACRONYM='DEM', OR_UNIT='URL',
-        OR_ADDR_LINE1='Ag.Paraskevi', OR_ADDR_LINE2=None,
-        OR_ADDR_ZIP='15310', OR_ADDR_CITY='Athens', OR_ADDR_COUNTRY='Greece')
+            OR_CODE='APP', #not ready#NOT RIGHT, ASK JPS
+            OR_NAME='Appalachian Atmospheric Interdisciplinary Research Program',
+            OR_ACRONYM='AppalAIR', OR_UNIT='Department of Physics and Astronomy',
+            OR_ADDR_LINE1='525 Rivers Street', OR_ADDR_LINE2=None,
+            OR_ADDR_ZIP='28608', OR_ADDR_CITY='Boone', OR_ADDR_COUNTRY='United States of America')
 
 
     # Projects the data are associated to
-    nas.metadata.projects = ['GAW-WDCA', 'ACTRIS']
+    nas.metadata.projects = ['GAW-WDCA', 'AppalAIR']
 # Station metadata
-    nas.metadata.station_code = 'GR0101R'
-    nas.metadata.platform_code = 'GR0101S'
-    nas.metadata.station_name = u'Helmos Mountain'
+    nas.metadata.station_code = 'NO0042G' #not ready#ASK JPS FOR STATION AND PLATFORM CODES
+    nas.metadata.platform_code = 'NO0042S'#not ready
+    nas.metadata.station_name = u'AppalAIR'
 
-    nas.metadata.station_wdca_id = 'GAWAGR__HAC'
-    nas.metadata.station_gaw_id = 'HAC'
-    nas.metadata.station_gaw_name = u'Helmos Mountain'
-    nas.metadata.station_airs_id = ''   # N/A
-    nas.metadata.station_other_ids = ''
+    nas.metadata.station_wdca_id = 'GAWANO__ZEP'#not ready
+    nas.metadata.station_gaw_id = 'ZEP'#not ready
+    nas.metadata.station_gaw_name = u'AppalAIR'
+    # nas.metadata.station_airs_id =    # N/A
+    nas.metadata.station_other_ids = '721 (NILUDB)'#not ready
     # nas.metadata.station_state_code =  # N/A
-    nas.metadata.station_state_code = ''
-    nas.metadata.station_landuse = 'gravel and Stone'
+    nas.metadata.station_landuse = 'Residential'
     nas.metadata.station_setting = 'Mountain'
-    nas.metadata.station_gaw_type = 'R'
-    nas.metadata.station_wmo_region = 6
-    nas.metadata.station_latitude = 37.984265
-    nas.metadata.station_longitude = 22.196262
-    nas.metadata.station_altitude = 2340.0  
+    nas.metadata.station_gaw_type = 'G'
+    nas.metadata.station_wmo_region = 4
+    nas.metadata.station_latitude = 36.212801
+    nas.metadata.station_longitude = -81.692592
+    nas.metadata.station_altitude = 1079.0
     
-    nas.metadata.mea_latitude = 37.984265
-    nas.metadata.mea_longitute = 22.196262
-    nas.metadata.mea_altitude = 2340.0
-    nas.metadata.mea_height = 6 
     # More file global metadata, but those can be overridden per variable
     # See set_variables for examples
     
     nas.metadata.comp_name = 'particle_number_size_distribution'
-    nas.metadata.unit = '1/cm3'      
-    nas.metadata.matrix = ''
-    nas.metadata.lab_code = ''
-    nas.metadata.instr_type = 'smps' #MUST BE in LOWER CASE LETTERS!! OTHERWISE GIVES ERRORS
-    nas.metadata.instr_name = ''
-    nas.metadata.instr_manufacturer ='TROPOS-TSI'
-    nas.metadata.instr_model = 'TROPOS-SMPS'
-    nas.metadata.instr_serialno = 'SMPS=TROPOS'
+    nas.metadata.unit = '1/cm3'#not ready
+    nas.metadata.matrix = ''#not ready
+    nas.metadata.lab_code = ''#not ready
+    nas.metadata.instr_type = 'smps'#not ready #MUST BE in LOWER CASE LETTERS!! OTHERWISE GIVES ERRORS
+    nas.metadata.instr_name = ''#not ready
+    nas.metadata.instr_manufacturer ='TROPOS-TSI'#not ready
+    nas.metadata.instr_model = 'TROPOS-SMPS'#not ready
+    nas.metadata.instr_serialno = 'SMPS=TROPOS' #not ready
     
-    nas.metadata.method = 'GR05L__NRT_SMPS_lev1'
-    nas.std_method = ''
+    nas.metadata.method = 'GR05L__NRT_SMPS_lev1'#not ready
+    nas.std_method = ''#not ready
     
-    nas.metadata.inlet_type = 'Impactor direct'
-    nas.metadata.inlet_desc = 'PM10 impactor'
-    nas.metadata.hum_temp_ctrl = 'Nafion dryer'
-    nas.metadata.hum_temp_ctrl_desc = 'Humidity/temperature control description: sample dried to below 40% RH with nafion dryer'
+    nas.metadata.inlet_type = 'Impactor direct'#not ready
+    nas.metadata.inlet_desc = 'PM10 impactor'#not ready
+    nas.metadata.hum_temp_ctrl = 'Nafion dryer'#not ready
+    nas.metadata.hum_temp_ctrl_desc = 'Humidity/temperature control description: sample dried to below 40% RH with nafion dryer'#not ready
     
-    nas.metadata.vol_std_temp = 273.15 
-    nas.metadata.vol_std_pressure = 1013.25  
-    nas.metadata.detection_limit=(0, '1/cm3') 
-    nas.metadata.detection_limit_desc='Determined only by instrument counting statistics, no detection limit flag used'
-    nas.metadata.uncertainty_desc='uncertainty range between instruments in intercomparison by Wiedensohler et al. 2012. (AMT)'
+    nas.metadata.vol_std_temp = 273.15 #not ready
+    nas.metadata.vol_std_pressure = 1013.25  #not ready
+    nas.metadata.detection_limit=(0, '1/cm3') #not ready
+    nas.metadata.detection_limit_desc='Determined only by instrument counting statistics, no detection limit flag used'#not ready
+    nas.metadata.uncertainty_desc='uncertainty range between instruments in intercomparison by Jiang et al. 2014.'#not ready
    
-    nas.metadata.zero_negative='Zero values possible'
-    nas.metadata.zero_negative_desc='Zero values may appear due to statistical variations at very low concentrations'
+    nas.metadata.zero_negative='Zero values possible'#not ready
+    nas.metadata.zero_negative_desc='Zero values may appear due to statistical variations at very low concentrations'#not ready
    
     
  
@@ -144,22 +139,32 @@ def set_fileglobal_metadata(nas):
     nas.metadata.originator = []
     nas.metadata.originator.append(
         DataObject(
-            PS_LAST_NAME='', PS_FIRST_NAME='', PS_EMAIL='',
-            PS_ORG_NAME='',
-            PS_ORG_ACR='', PS_ORG_UNIT='',
-            PS_ADDR_LINE1='', PS_ADDR_LINE2=None,
-            PS_ADDR_ZIP='', PS_ADDR_CITY='',
-            PS_ADDR_COUNTRY='',
+            PS_LAST_NAME='Sherman', PS_FIRST_NAME='James', PS_EMAIL='shermanjp@appstate.edu',
+            PS_ORG_NAME='Appalachian Atmospheric Interdisciplinary Research Program',
+            PS_ORG_ACR='AppalAIR', PS_ORG_UNIT='Department of Physics and Astronomy',
+            PS_ADDR_LINE1='525 Rivers Street', PS_ADDR_LINE2=None,
+            PS_ADDR_ZIP='28608', PS_ADDR_CITY='Boone',
+            PS_ADDR_COUNTRY='United States of America',
             PS_ORCID=None,
         ))
     nas.metadata.originator.append(
         DataObject(
-            PS_LAST_NAME=u'Vratolis', PS_FIRST_NAME='Stergios', PS_EMAIL='vratolis@ipta.demokritos.gr',
-            PS_ORG_NAME='NCSR Demokritos',
-            PS_ORG_ACR='DEM', PS_ORG_UNIT='ERL',
-            PS_ADDR_LINE1='Ag.Paraskevi', PS_ADDR_LINE2=None,
-            PS_ADDR_ZIP='15310', PS_ADDR_CITY='Athens',
-            PS_ADDR_COUNTRY='Greece',
+            PS_LAST_NAME=u'Parkhurst', PS_FIRST_NAME='Ethan', PS_EMAIL='parkhursted@appstate.edu',
+            PS_ORG_NAME='Appalachian Atmospheric Interdisciplinary Research Program',
+            PS_ORG_ACR='AppalAIR', PS_ORG_UNIT='Department of Physics and Astronomy',
+            PS_ADDR_LINE1='525 Rivers Street', PS_ADDR_LINE2=None,
+            PS_ADDR_ZIP='28608', PS_ADDR_CITY='Boone',
+            PS_ADDR_COUNTRY='United States of America',
+            PS_ORCID=None,
+        ))
+    nas.metadata.originator.append(
+        DataObject(
+            PS_LAST_NAME=u'Kitteringham', PS_FIRST_NAME='Ryan', PS_EMAIL='kitteringhamrr@appstate.edu',
+            PS_ORG_NAME='Appalachian Atmospheric Interdisciplinary Research Program',
+            PS_ORG_ACR='AppalAIR', PS_ORG_UNIT='Department of Physics and Astronomy',
+            PS_ADDR_LINE1='525 Rivers Street', PS_ADDR_LINE2=None,
+            PS_ADDR_ZIP='28608', PS_ADDR_CITY='Boone',
+            PS_ADDR_COUNTRY='United States of America',
             PS_ORCID=None,
         ))
 
@@ -167,12 +172,12 @@ def set_fileglobal_metadata(nas):
     nas.metadata.submitter = []
     nas.metadata.submitter.append(
         DataObject(
-            PS_LAST_NAME=u'Gini', PS_FIRST_NAME='Maria', PS_EMAIL='gini@ipta.demokritos.gr',
-            PS_ORG_NAME='NCSR Demokritos',
-            PS_ORG_ACR='DEM', PS_ORG_UNIT='ERL',
-            PS_ADDR_LINE1='Ag.Paraskevi', PS_ADDR_LINE2=None,
-            PS_ADDR_ZIP='15310', PS_ADDR_CITY='Athens',
-            PS_ADDR_COUNTRY='Greece',
+            PS_LAST_NAME=u'Parkhurst', PS_FIRST_NAME='Ethan', PS_EMAIL='parkhursted@appstate.edu',
+            PS_ORG_NAME='Appalachian Atmospheric Interdisciplinary Research Program',
+            PS_ORG_ACR='AppalAIR', PS_ORG_UNIT='Department of Physics and Astronomy',
+            PS_ADDR_LINE1='525 Rivers Street', PS_ADDR_LINE2=None,
+            PS_ADDR_ZIP='28608', PS_ADDR_CITY='Boone',
+            PS_ADDR_COUNTRY='United States of America',
             PS_ORCID=None,
         ))
 
@@ -181,8 +186,8 @@ def set_fileglobal_metadata(nas):
     #nas.metadata.qm_doc_date=''
     #nas.metadata.qm_doc_url=''
     
-    nas.metadata.acknowledgements='Request acknowledgment details from data originator'
-    nas.metadata.comment='none'
+    nas.metadata.acknowledgements='Request acknowledgment details from data originator'#not ready
+    nas.metadata.comment='none'#not ready
 
 def set_time_axes(nas):
     """
