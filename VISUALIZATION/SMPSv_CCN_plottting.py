@@ -253,8 +253,8 @@ def plot_gen(data, mode = 0,vars = ['ss'], date = 0, group ='all', drop0s = True
 
 
 if __name__ == '__main__':
-    smps = [r"C:\Users\bensy\Documents\Research\SMPS_NumberSizeDist_2025_1hr.csv"]#list(input('Provide paths to SMPS file(s). Seperate multiples with a comma: ').replace('"','').split(','))
-    ccn = [r"C:\Users\bensy\Documents\Research\CCN_Processed_2025_1hr.csv"]#list(input('Provide paths to CCN file(s). Seperate multiples with a comma: ').replace('"','').split(','))
+    smps = list(input('Provide paths to SMPS file(s). Seperate multiples with a comma: ').replace('"','').split(','))
+    ccn = list(input('Provide paths to CCN file(s). Seperate multiples with a comma: ').replace('"','').split(','))
     data = comb_files(smps,ccn)
     out = input("Enter filepath to export data as a csv, or press 'enter' to skip: ")
     if out != '':
