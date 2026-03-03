@@ -18,13 +18,12 @@ def testnan(val):
         return val
     else:
         return None
-
 #INPUT DATA-VALUES
-f = r'Level1_final.txt'
+f = r'InputData_for_lev2.txt'
 first_column=1 #(first column with variable to process) 
-last_column=75 # (last column to process)
-index_flag_col=76 #(nb column with flag data)
-tresol=5 #sample duration
+last_column=217 # (last column to process)
+index_flag_col=218 #(nb column with flag data)
+tresol=60 #sample duration
 df=pd.read_csv(f, delimiter=',', header=0, engine='python')  #Specify nb_lines of header, delimiter etc
 df = df.where((pd.notnull(df)), None) #Replace nan values with None
 start_times_df=pd.to_datetime(df['DateTime'],format='%Y-%m-%d %H:%M:%S') #Specify format of datetime column to read. The column in called by the header name
@@ -32,11 +31,11 @@ names=list(df.columns.values)
 numb_col=df.shape[1]
 
 #INPUT METADATA_VARIABLES !!!! METADATA and INPUT FILES MUST HAVE THE SAME NUMBER OF COLUMNS AND IN THE SAME ORDER AND POSITION!!
-f_metadata=r'Input_metadata_lev1.csv'
+f_metadata=r'metadata_level2.csv'
 df_metadata=pd.read_csv(f_metadata, delimiter=',', header=0)
 
 #OUTPUT FOLDER
-destdir_out='./'
+destdir_out='.'
 
 
 
@@ -59,15 +58,15 @@ def set_fileglobal_metadata(nas):
     nas.metadata.revdate = datetime.datetime(2017, 7, 20, 13, 23, 00)
     nas.metadata.revision = '1.1a'
     nas.metadata.revdesc = \
-        'initial revision, NRT SMPS_control_lev0 lev0 2 lev1 v.0.0_2'
+        'initiol revision, SMPS_control_lev0 v.0.0_2'
    
     nas.metadata.type = 'TU'
   
     # Revision information
-    nas.metadata.startdate = datetime.datetime(2016, 1, 1, 00, 00, 00)#not ready #I am not sure about the time format
+    nas.metadata.startdate = datetime.datetime(2016, 1, 1, 00, 00, 00) #I am not sure about the time format
 
 
-    nas.metadata.datalevel = '1'
+    nas.metadata.datalevel = '2'
     nas.metadata.period = '1y'
     nas.metadata.resolution = '5mn'
     nas.metadata.duration = '5mn'
@@ -75,17 +74,18 @@ def set_fileglobal_metadata(nas):
     
     # Data Originator Organisation
     nas.metadata.org = DataObject(
-            OR_CODE='APP', #not ready#NOT RIGHT, ASK JPS
-            OR_NAME='Appalachian Atmospheric Interdisciplinary Research Program',
-            OR_ACRONYM='AppalAIR', OR_UNIT='Department of Physics and Astronomy',
-            OR_ADDR_LINE1='525 Rivers Street', OR_ADDR_LINE2=None,
-            OR_ADDR_ZIP='28608', OR_ADDR_CITY='Boone', OR_ADDR_COUNTRY='United States of America')
+        OR_CODE='APP', #NOT RIGHT, ASK JPS
+        OR_NAME='Appalachian Atmospheric Interdisciplinary Research Program',
+        OR_ACRONYM='AppalAIR', OR_UNIT='Department of Physics and Astronomy',
+        OR_ADDR_LINE1='525 Rivers Street', OR_ADDR_LINE2=None,
+        OR_ADDR_ZIP='28608', OR_ADDR_CITY='Boone', OR_ADDR_COUNTRY='United States of America')
+
 
 
     # Projects the data are associated to
-    nas.metadata.projects = ['GAW-WDCA', 'AppalAIR']
+    nas.metadata.projects = ['GAW-WDCA', 'ACTRIS']
 # Station metadata
-    nas.metadata.station_code = 'NO0042G' #not ready#ASK JPS FOR STATION AND PLATFORM CODES
+    nas.metadata.station_code = 'NO0042G' #ASK JPS FOR STATION AND PLATFORM CODES
     nas.metadata.platform_code = 'NO0042S'#not ready
     nas.metadata.station_name = u'AppalAIR'
 
@@ -102,22 +102,22 @@ def set_fileglobal_metadata(nas):
     nas.metadata.station_latitude = 36.212801
     nas.metadata.station_longitude = -81.692592
     nas.metadata.station_altitude = 1079.0
-    
+    nas.metadata.mea_height = 6 #not ready
     # More file global metadata, but those can be overridden per variable
     # See set_variables for examples
     
-    nas.metadata.comp_name = 'particle_number_size_distribution'
-    nas.metadata.unit = '1/cm3'#not ready
-    nas.metadata.matrix = ''#not ready
-    nas.metadata.lab_code = ''#not ready
-    nas.metadata.instr_type = 'smps'#not ready #MUST BE in LOWER CASE LETTERS!! OTHERWISE GIVES ERRORS
-    nas.metadata.instr_name = ''#not ready
+    nas.metadata.comp_name = 'particle_number_size_distribution'#not ready
+    nas.metadata.unit = '1/cm3'      #not ready
+    nas.metadata.matrix = 'pm10'#not ready
+    nas.metadata.lab_code = 'GR05L'#not ready
+    nas.metadata.instr_type = 'smps'#not ready
+    nas.metadata.instr_name = 'SMPS-TROPOS'#not ready
     nas.metadata.instr_manufacturer ='TROPOS-TSI'#not ready
     nas.metadata.instr_model = 'TROPOS-SMPS'#not ready
-    nas.metadata.instr_serialno = 'SMPS=TROPOS' #not ready
+    nas.metadata.instr_serialno = 'SMPS=TROPOS'#not ready
     
-    nas.metadata.method = 'GR05L__NRT_SMPS_lev1'#not ready
-    nas.std_method = ''#not ready
+    nas.metadata.method = 'GR05L__NRT_SMPS_lev2'#not ready
+    nas.std_method = 'SOP=Wiedensohler2012'#not ready
     
     nas.metadata.inlet_type = 'Impactor direct'#not ready
     nas.metadata.inlet_desc = 'PM10 impactor'#not ready
@@ -127,8 +127,8 @@ def set_fileglobal_metadata(nas):
     nas.metadata.vol_std_temp = 273.15 #not ready
     nas.metadata.vol_std_pressure = 1013.25  #not ready
     nas.metadata.detection_limit=(0, '1/cm3') #not ready
-    nas.metadata.detection_limit_desc='Determined only by instrument counting statistics, no detection limit flag used'#not ready
-    nas.metadata.uncertainty_desc='uncertainty range between instruments in intercomparison by Jiang et al. 2014.'#not ready
+    nas.metadata.detection_limit_desc=' Determined only by instrument counting statistics, no detection limit flag used'
+    nas.metadata.uncertainty_desc='uncertainty range between instruments in intercomparison by Wiedensohler et al. 2012. (AMT)'#not ready
    
     nas.metadata.zero_negative='Zero values possible'#not ready
     nas.metadata.zero_negative_desc='Zero values may appear due to statistical variations at very low concentrations'#not ready
@@ -257,7 +257,7 @@ def set_variables(nas):
         None
     """
     
-    #x=14
+    
     x=first_column
     while x < last_column+1:                                                  
         col=df.take([x],axis=1)
@@ -316,6 +316,7 @@ def set_variables(nas):
                                     #metadata=metadata))
                                     #
         x+=1    
+    
 
 def ebas_genfile():
     """
