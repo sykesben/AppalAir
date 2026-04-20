@@ -1,6 +1,6 @@
-#Aydan Gibbs
-#8/28/25
-#Compiles SMPS AIM files in a designated folder and Outputs them into one csv file with no AIM meta data
+#Ethan Parkhurst and Aydan Gibbs
+#10/20/25
+#Compiles SMPS AIM files in a designated folder and Outputs them into 2 csv files, one with no AIM meta data and one containing the AIM meta data
 #Quality assures data and outputs one csv file with no AIM meta data
 #Averages data over various time steps and outputs one csv file with no AIM meta data
 
@@ -15,6 +15,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
 from pathlib import Path
+from datetime import datetime
 
 def main():
 
@@ -98,7 +99,10 @@ def _get_linecount(fpath, keyword, delimiter=',', encoding='ISO-8859-1'):
                 break
 
             linecount += 1
-
+            if linecount > 53:
+                linecount = 0
+                break
+    print(linecount)
     return linecount
 
 def CombineFiles():
@@ -112,6 +116,7 @@ def CombineFiles():
 
     #create a dataframe to store combined data
     dataTotal = pd.DataFrame()
+    metaTotal = pd.DataFrame()
 
     #Get the path to the data folder
     folderpath = Path(input("\nInput the full path of the folder youd like to access:\n"))
@@ -120,38 +125,56 @@ def CombineFiles():
     #itterates through each file in the user specified folder and appends them to dataTotal
     for entry in folderpath.iterdir():                                          #looks at each item in the folder
         print(entry)                                                            #prints each file name
-        metaDataLines = _get_linecount(entry, keyword = 'Scan Number')          #returns the linecount of metadata
+        if "METADATA" in str(entry):
+            
+            meta = pd.read_table(                                                   #reads in the metadata into a df 'meta'
+                    entry, 
+                    #nrows=metaDataLines, 
+                    delimiter=',', 
+                    #header=None, 
+                    #encoding='ISO-8859-1',
+                    #on_bad_lines='warn',
+                    index_col = 0
+                )
+        else:
+            metaDataLines = _get_linecount(entry, keyword = 'Scan Number' or 'DateTime Sample Start')          #returns the linecount of metadata
 
-        meta = pd.read_table(                                                   #reads in the metadata into a df 'meta'
-                        entry, 
-                        nrows=metaDataLines, 
-                        delimiter=',', 
-                        header=None, 
-                        encoding='ISO-8859-1',
-                        on_bad_lines='warn',
-                        index_col = 0
-                    ).T.iloc[0,:].to_dict()
-
-        dataRaw = pd.read_table(                                                #reads in the data, skipping over the metaDataLines
-                        entry,
-                        skiprows=metaDataLines,
-                        delimiter = ','
-                    )
+            meta = pd.read_table(                                                   #reads in the metadata into a df 'meta'
+                            entry, 
+                            nrows=metaDataLines, 
+                            delimiter=',', 
+                            header=None, 
+                            encoding='ISO-8859-1',
+                            on_bad_lines='warn',
+                            index_col = 0
+                        ).T.iloc[0,:].to_dict()
+            dataRaw = pd.read_table(                                                #reads in the data, skipping over the metaDataLines
+                            entry,
+                            skiprows=metaDataLines,
+                            delimiter = ','
+                        )
+        
+        
         
         dataTotal = dataTotal._append(dataRaw, ignore_index = True)             #append each file to dataTotal
+        metaTotal = metaTotal._append(meta, ignore_index = True)                #appends each metadata to metaTotal 
 
     #Convert the "DateTime Sample Start" column to a datetime object
     dataTotal["DateTime Sample Start"] = pd.to_datetime(dataTotal["DateTime Sample Start"], format = 'mixed', dayfirst=True)
     dataTotal = dataTotal.set_index('DateTime Sample Start')                    #now use the datetime object as the new index, this sorts the data by date
     dataTotal = dataTotal.sort_index()
 
-    #saves user data apon request
+    #saves user data upon request
     CreateFileYN = input('\nWould you like to save this combined file? (Y/N)\n')#promt user to save combined file
     if CreateFileYN == 'Y':                                                     #if yes, create the file at user speified location 
                                                                                 #just outside the folder the user specified earlier
-        name = input('\nEnter the desired name of your combined file and include the file type .csv:\n' \
+        name = input('\nEnter the desired name of your combined file. DO NOT INCLUDE .CSV:\n' \
                      '(This will place the file just outside the folder you indicated previously with the name you specify)\n')
-        dataTotal.to_csv(ParentPath / name)
+        final_m_name = name + 'METADATA.csv'
+        final_d_name = name + '.csv'
+        dataTotal.to_csv(ParentPath / final_d_name)
+        metaTotal.to_csv(ParentPath / final_m_name)                         #creates the csv file with name plus META with all the metadata from the combination
+
     print(dataTotal)                                                            #print the combined file for a check
     return dataTotal                                                            #return the combined file
 
@@ -179,7 +202,7 @@ def AverageFile(DataDF,FilePath):
         #Takes the statistics, raw, and corrected data columns from the data to then be averaged
         #we do this so that you arnt trying to average N/A data, or text data
         AllColumns = list(dataRaw.columns)                                      #lists all the columns
-        StatsHeaders = AllColumns[33:40] + AllColumns[41:500]                   #selects statistics columns, raw, and corrected data from the list
+        StatsHeaders = AllColumns[32:40] + AllColumns[41:500]                   #selects statistics columns, raw, and corrected data from the list
         print(StatsHeaders)
         dataRaw =  dataRaw[StatsHeaders]                                        #uses just the previously selected columns
         dataRaw.index = pd.to_datetime(dataRaw.index)                           #turn the index back into a date time object (this was undone some how previously)
@@ -191,12 +214,14 @@ def AverageFile(DataDF,FilePath):
 
                         #Convert the "DateTime Sample Start" column to a datetime object
                         dataRaw["DateTime Sample Start"] = pd.to_datetime(dataRaw["DateTime Sample Start"], format = 'mixed', dayfirst=True)
+                        #dataRaw["Date Processed"] = datetime.now()
 
                         #Takes the statistics, raw, and corrected data columns from the data to then be averaged
                         #we do this so that you arnt trying to average N/A data, or text data
                         AllColumns = list(dataRaw.columns)                      #lists all the columns
-                        StatsHeaders = AllColumns[33:40] + AllColumns[41:500]   #selects statistics columns, raw, and corrected data from the list
-                        StatsHeaders.append('DateTime Sample Start')            #add the time stamps to the list
+                        #StatsHeaders.append('DateTime Sample Averaged')        #COLUMNS NEED TO SHIFT OVER BY 1 ONCE WE ADD ERROR READING BAR IN QA
+                        StatsHeaders = AllColumns[33:41] + AllColumns[42:500]   #selects statistics columns, raw, and corrected data from the list
+                        StatsHeaders.append('DateTime Sample Start')            #add the time stamps to the lis
                         dataRaw =  dataRaw[StatsHeaders]                        #uses just the previously selected columns   
                         dataRaw = dataRaw.set_index('DateTime Sample Start')    #now use the datetime object as the new index, this sorts the data by date
 
@@ -256,7 +281,7 @@ def QualityAssureFile(DataDF ,filepath = 'N'):
 
 
     #use outlier functions to remove outliers
-    HumidityRangeOutliers = FindOutliersRange(dataRaw, 'Aerosol Humidity (%)', 0, 50)
+    HumidityRangeOutliers = FindOutliersRange(dataRaw, 'Aerosol Humidity (%)', 0, 40)
     dataRaw = RemoveOutliers(dataRaw, HumidityRangeOutliers)
     AverageOutliers = FindOutliersAverage(dataRaw, 'Geo. Mean (nm)')
     dataRaw = RemoveOutliers(dataRaw, AverageOutliers)
@@ -298,7 +323,7 @@ def FindOutliersAverage(Data, DataType):
     :return: outliers compiled into a data frame
     :rtype: dataframe 
     """
-
+    
     #define local variables
 
     #rows to be avearaged together
@@ -359,8 +384,6 @@ def FindOutliersAverage(Data, DataType):
 
     return Outliers                                                             #return the dataframe of Outliers
 
-
-
 def FindOutliersRange(Data,Column,Min,Max):
     """
     8/19/25
@@ -373,9 +396,9 @@ def FindOutliersRange(Data,Column,Min,Max):
     :param Column: name of the column used to id outliers
     :type Column: string
     :param Max: data greater than this will be an outlier
-    :type Max: integer
+    :type Max: intiger
     :param Min: data less than this will be an outlier
-    :type Min: integer
+    :type Min: intiger
 
     :return: dataframe of Outliers
     :rtype: dataframe
