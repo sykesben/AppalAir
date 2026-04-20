@@ -202,7 +202,7 @@ def AverageFile(DataDF,FilePath):
         #Takes the statistics, raw, and corrected data columns from the data to then be averaged
         #we do this so that you arnt trying to average N/A data, or text data
         AllColumns = list(dataRaw.columns)                                      #lists all the columns
-        StatsHeaders = AllColumns[33:41] + AllColumns[42:500]                   #selects statistics columns, raw, and corrected data from the list
+        StatsHeaders = AllColumns[32:40] + AllColumns[41:500]                   #selects statistics columns, raw, and corrected data from the list
         print(StatsHeaders)
         dataRaw =  dataRaw[StatsHeaders]                                        #uses just the previously selected columns
         dataRaw.index = pd.to_datetime(dataRaw.index)                           #turn the index back into a date time object (this was undone some how previously)
