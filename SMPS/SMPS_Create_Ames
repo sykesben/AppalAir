@@ -1,0 +1,65 @@
+"""
+Date: 04/02/2026
+Author: Ethan Parkhurst
+Purpose: Generates NASA AMES files from SMPS csv files
+"""
+
+import numpy as np
+import pandas as pd 
+import os
+from os.path import expanduser 
+import datetime as dt 
+import scipy as sp
+from scipy.linalg import lstsq
+import matplotlib.pyplot as plt
+from SMPS_AMES_LVL2 import ebas_genfile
+from pathlib import Path
+import time
+
+
+def SMPS_EBAS(file_in,folder_out):
+    """
+    Takes in a path to processed SMPS file and generates a NASA AMES formated file
+    ----------
+    Paramaters
+    ++++++++++
+    file_in : [str/path-like] Path to the processed CCN file
+    folder_out : [str/path-like] Path to folder to place EBAS file
+
+    Returns
+    ++++++++++
+    NONE
+    """
+    df = pd.read_csv(file_in)#read in csv skipping first row of verbose column headings
+    df=df.set_index('DateTime Sample Start')
+
+    df = df.fillna(0)
+    df.index = pd.to_datetime(df.index)
+    dates= df.index.to_list()
+    input(np.isnan(np.sum(df.values.tolist())))
+
+    data = df.values.tolist()
+
+
+    # df['flag'] = [000]
+    # df['flag']['Q_flag' ==1] = [662]
+    # df['flag']['integrity_flag' == 1] = [111]
+    flags = [[[000] for j in range(len(data[i]))] for i in range(len(dates))]
+    data =  list(map(list, zip(*data)))
+    #flags = list(map(list, zip(*flags)))
+
+    date_list = []
+    for i in range(len(dates)-1):
+        if i == 0:
+            date_list.append(pd.to_datetime(dates[i]))
+        elif (pd.to_datetime(dates[i+1])-pd.to_datetime(dates[i]) > pd.Timedelta(1, 'hr')):
+            date_list.append(pd.to_datetime(dates[i]))
+            date_list.append(pd.to_datetime(dates[i+1]))
+    date_list.append(pd.to_datetime(dates[-1]))  
+    # data = np.nan_to_num(data, nan=1, posinf=1e6, neginf=-1e6)
+    # input(np.isnan(np.sum(data)))
+    ebas_genfile(folder_out, data, dates)
+
+pathway = input("\nInput the path of your SMPS csv file.\n")
+path = Path(pathway)
+SMPS_EBAS(path,path.parent)

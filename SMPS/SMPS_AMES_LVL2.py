@@ -1,10 +1,4 @@
-#!/usr/bin/env python
-# coding=utf-8
-"""
-$Id: ebas_genfile.py 1431 2016-10-27 14:25:12Z pe $
 
-Example for creating an EBAS_1.1 NasaAmes datafile.
-"""
 from ebas.io.file import nasa_ames
 from nilutility.datatypes import DataObject
 from ebas.domain.basic_domain_logic.time_period import estimate_period_code, \
@@ -19,7 +13,7 @@ def testnan(val):
     else:
         return None
 #INPUT DATA-VALUES
-f = r'InputData_for_lev2.txt'
+#f = r'InputData_for_lev2.txt'
 first_column=1 #(first column with variable to process) 
 last_column=217 # (last column to process)
 index_flag_col=218 #(nb column with flag data)
@@ -55,15 +49,15 @@ def set_fileglobal_metadata(nas):
     # Setting the timezone here explicitly should remind you to check your data
     nas.metadata.timezone = 'UTC'
     
-    nas.metadata.revdate = datetime.datetime(2017, 7, 20, 13, 23, 00)
+    nas.metadata.revdate = datetime.datetime.now()
     nas.metadata.revision = '1.1a'
     nas.metadata.revdesc = \
-        'initiol revision, SMPS_control_lev0 v.0.0_2'
+        'initial revision to ebas, generated with MyDataTool 1.22'
    
-    nas.metadata.type = 'TU'
+    #nas.metadata.type = 'TU'
   
     # Revision information
-    nas.metadata.startdate = datetime.datetime(2016, 1, 1, 00, 00, 00) #I am not sure about the time format
+    nas.metadata.startdate = datetime.datetime(2024, 1, 1, 00, 00, 00) #I am not sure about the time format
 
 
     nas.metadata.datalevel = '2'
@@ -85,13 +79,13 @@ def set_fileglobal_metadata(nas):
     # Projects the data are associated to
     nas.metadata.projects = ['GAW-WDCA', 'ACTRIS']
 # Station metadata
-    nas.metadata.station_code = 'NO0042G' #ASK JPS FOR STATION AND PLATFORM CODES
-    nas.metadata.platform_code = 'NO0042S'#not ready
+    nas.metadata.station_code = 'APP'
+    nas.metadata.platform_code = 'APP'
     nas.metadata.station_name = u'AppalAIR'
 
     nas.metadata.station_wdca_id = 'GAWANO__ZEP'#not ready
-    nas.metadata.station_gaw_id = 'ZEP'#not ready
-    nas.metadata.station_gaw_name = u'AppalAIR'
+    nas.metadata.station_gaw_id = 'APP'#not ready
+    nas.metadata.station_gaw_name = u'Appalachian State University'
     # nas.metadata.station_airs_id =    # N/A
     nas.metadata.station_other_ids = '721 (NILUDB)'#not ready
     # nas.metadata.station_state_code =  # N/A
@@ -101,32 +95,32 @@ def set_fileglobal_metadata(nas):
     nas.metadata.station_wmo_region = 4
     nas.metadata.station_latitude = 36.212801
     nas.metadata.station_longitude = -81.692592
-    nas.metadata.station_altitude = 1079.0
+    nas.metadata.station_altitude = 1076.0
     nas.metadata.mea_height = 6 #not ready
     # More file global metadata, but those can be overridden per variable
     # See set_variables for examples
     
-    nas.metadata.comp_name = 'particle_number_size_distribution'#not ready
-    nas.metadata.unit = '1/cm3'      #not ready
-    nas.metadata.matrix = 'pm10'#not ready
-    nas.metadata.lab_code = 'GR05L'#not ready
-    nas.metadata.instr_type = 'smps'#not ready
-    nas.metadata.instr_name = 'SMPS-TROPOS'#not ready
-    nas.metadata.instr_manufacturer ='TROPOS-TSI'#not ready
-    nas.metadata.instr_model = 'TROPOS-SMPS'#not ready
+    nas.metadata.comp_name = 'particle_number_size_distribution'
+    nas.metadata.unit = '#/cm3'      
+    nas.metadata.matrix = 'aerosol'
+    nas.metadata.lab_code = 'APP'
+    nas.metadata.instr_type = 'SMPS'
+    nas.metadata.instr_name = 'SMPS-3938'
+    nas.metadata.instr_manufacturer ='TSI'
+    nas.metadata.instr_model = '3938'
     nas.metadata.instr_serialno = 'SMPS=TROPOS'#not ready
     
-    nas.metadata.method = 'GR05L__NRT_SMPS_lev2'#not ready
-    nas.std_method = 'SOP=Wiedensohler2012'#not ready
+    nas.metadata.method = 'APP_SMPS_lev2'
+    nas.std_method = 'SOP=Wiedensohler2012' #not ready
     
     nas.metadata.inlet_type = 'Impactor direct'#not ready
-    nas.metadata.inlet_desc = 'PM10 impactor'#not ready
-    nas.metadata.hum_temp_ctrl = 'Nafion dryer'#not ready
-    nas.metadata.hum_temp_ctrl_desc = 'Humidity/temperature control description: sample dried to below 40% RH with nafion dryer'#not ready
+    nas.metadata.inlet_desc = 'No impactor' #not ready
+    nas.metadata.hum_temp_ctrl = 'Sample Stream Dryer'
+    nas.metadata.hum_temp_ctrl_desc = 'Humidity/temperature control description: sample dried to below 40% RH with sample stream dryer'
     
-    nas.metadata.vol_std_temp = 273.15 #not ready
-    nas.metadata.vol_std_pressure = 1013.25  #not ready
-    nas.metadata.detection_limit=(0, '1/cm3') #not ready
+    nas.metadata.vol_std_temp = 273.15 
+    nas.metadata.vol_std_pressure = 1013.25  
+    nas.metadata.detection_limit=(0, '#/cm3') 
     nas.metadata.detection_limit_desc=' Determined only by instrument counting statistics, no detection limit flag used'
     nas.metadata.uncertainty_desc='uncertainty range between instruments in intercomparison by Wiedensohler et al. 2012. (AMT)'#not ready
    
@@ -247,7 +241,7 @@ def set_time_axes(nas):
     nas.metadata.reference_date = \
         datetime.datetime(nas.sample_times[0][1].year, 1, 1)
 
-def set_variables(nas):
+def set_variables(nas, data):
     """
     Set metadata and data for all variables for the EbasNasaAmes file object.
 
@@ -318,7 +312,7 @@ def set_variables(nas):
         x+=1    
     
 
-def ebas_genfile():
+def ebas_genfile(path, data, date):
     """
     Main program for ebas_flatcsv
     Created for lexical scoping.
@@ -336,13 +330,13 @@ def ebas_genfile():
     set_fileglobal_metadata(nas)
 
     # Set the time axes and related metadata
-    set_time_axes(nas)
+    set_time_axes(nas, date)
 
     # Set metadata and data for all variables
-    set_variables(nas)
+    set_variables(nas, data)
 
     # write the file:
-    nas.write(createfiles=True,destdir=destdir_out)
+    nas.write(createfiles=True,destdir=path)
     # createfiles=True
     #     Actually creates output files, else the output would go to STDOUT.
     # You can also specify:
@@ -362,4 +356,4 @@ def ebas_genfile():
     #     This is a trade-off between the advantages and disadvantages of the
     #     above mentioned approaches.
 
-ebas_genfile()
+
