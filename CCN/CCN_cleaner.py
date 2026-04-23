@@ -95,14 +95,14 @@ def line_plot(x,y,legs):
     input('Press enter to exit plot...')
     plt.ioff()
 
-file_in = r"C:\Users\bensy\Documents\Research\CCN 20251101.csv"
-start_file = r"C:\Users\bensy\Documents\Research\CCN_Clean_2025_1min.csv"
-file_out = r"C:\Users\bensy\Documents\Research\CCN_Clean_2025_1min_test.csv"
+file_in = r"C:\Users\bensy\Documents\Research\CCN\app_20260101.csv"
+# start_file = r"C:\Users\bensy\Documents\Research\CCN_Clean_2026_1min.csv"
+file_out = r"C:\Users\bensy\Documents\Research\CCN_Clean_2026_1min.csv"
 
 end_data, rename = readin(file_in)
-print('end')
-start_data,rename = readin(start_file)
-print('start')
+# print('end')
+# start_data,rename = readin(start_file)
+# print('start')
 
 data,rename = readin(file_in)
 
@@ -112,7 +112,10 @@ data['check'] = data['N(cm-3)'].to_numpy()
 data['check'].iloc[peaks] = np.nan
 data.loc[data['N(cm-3)']>5000] = np.nan
 
-data.loc[pd.to_datetime('2025-12-03 21:30:00'): pd.to_datetime('2025-12-06 00:00:00')] = np.nan
+data.loc[pd.to_datetime('2026-01-09 17:00:00'): pd.to_datetime('2025-01-09 19:00:00')] = np.nan
+data.loc[pd.to_datetime('2026-01-20 17:00:00'): pd.to_datetime('2025-01-20 19:05:00')] = np.nan
+data.loc[pd.to_datetime('2026-02-10 13:30:00'): pd.to_datetime('2025-02-10 14:00:00')] = np.nan
+data.loc[pd.to_datetime('2026-03-25 15:48:00'): pd.to_datetime('2025-03-25 17:55:00')] = np.nan
 
 date = data.index.to_numpy()
 y = [data['N(cm-3)'].to_numpy(),data['check'].to_numpy()]
@@ -121,7 +124,7 @@ line_plot(date,y,leg)
 
 data.iloc[peaks] = np.nan
 
-out = pd.concat([start_data, data])
+out = data
 input(out)
 out.to_csv(file_out)
 # if __name__ == '__main__':

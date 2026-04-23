@@ -49,6 +49,6 @@ smps['>200nm'] =smps[gr200].mean(axis=1)
 
 data = pd.merge(ccn,smps[['>80nm', '>200nm']],left_index = True, right_index = True)
 
-data = data.loc[pd.to_datetime('2025-07-25'):pd.to_datetime('2025-11-01')]
+data = data.loc[pd.to_datetime('2025-07-25'):]
 data.to_csv(expanduser("~/Documents/Research/SMPS_CCN_comparison_daily.csv"))
 print('done')

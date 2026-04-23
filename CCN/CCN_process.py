@@ -384,7 +384,7 @@ def stp_corr(df,cols,Tstp = 273.15, Pstp= 1013.25):
         df[new_col] = df[col]*Pstp/Pact*Tact/Tstp
     return df
 
-def flow_corr(df, start_date,end_date, col, ratio, int0, int1):
+def flow_corr_flat(df, start_date,end_date, flow, cols, ratio, int0, int1, name = ''):
     r"""
     Applies a correction to the flow value for vol conc adjustement
     ----------
@@ -393,20 +393,87 @@ def flow_corr(df, start_date,end_date, col, ratio, int0, int1):
     df : [pd.DataFrame] Data to process.  
     start_date : [pd.Datetime] Start date to begin the linear correction
     end_date : [pd.Datetime] End date to stop the linear correction
-    col : [str] Flow column
+    flow : [str] Flow column name
+    cols : [list of str] CCN column names
     ratio : [float] ratio between slopes for corr
     int0 : [float] intercept from lin corr 0
     int1 : [float] intercept from lin corr 1 
+    name : [str] name to pass for differentiating columns out (default = 0)
 
     Returns
     +++++++
-    df : [Pandas.DataFrame] Original Dataframe with Q corr column 
+    df : [Pandas.DataFrame] Original Dataframe with Q corr column and CCN corr columns
     """
     dt = df.index.to_numpy()
-    corr = (ratio*(df[col].to_numpy()*1000- int0)+int1)*0.001
-    raw = df[col].to_numpy()
+    corr = (ratio*(df[flow].to_numpy()*1000- int0)+int1)*0.001
+    raw = df[flow].to_numpy()
     vals = np.where((dt>start_date)&(dt<end_date),corr,raw)
-    df[f'corr_{col}'] = vals
+    df[f'{flow}_{name}_cor'] = vals
+    for col in cols: 
+        df[f'{col}_{name}_cor'] = df[col] *raw/vals
+    return df
+
+def flow_corr_log(df, start_date,end_date, flow, cols, ratio, int0, int1, name = ''):
+    r"""
+    Applies a log correction to the flow value for vol conc adjustement
+    ----------
+    Paramaters
+    ++++++++++
+    df : [pd.DataFrame] Data to process.  
+    start_date : [pd.Datetime] Start date to begin the linear correction
+    end_date : [pd.Datetime] End date to stop the linear correction
+    flow : [str] Flow column name
+    cols : [list of str] CCN column names
+    ratio : [float] ratio between slopes for corr
+    int0 : [float] intercept from lin corr 0
+    int1 : [float] intercept from lin corr 1 
+    name : [str] name to pass for differentiating columns out (default = 0)
+
+    Returns
+    +++++++
+    df : [Pandas.DataFrame] Original Dataframe with Q corr column and CCN corr columns
+    """
+    dt = df.index.to_numpy()
+    corr = (ratio*(df[flow].to_numpy()*1000- int0)+int1)*0.001
+    raw = df[flow].to_numpy()
+    vals = np.where((dt>start_date)&(dt<end_date),corr,raw)
+    df[f'{flow}_{name}_cor'] = vals
+    for col in cols: 
+        df[f'{col}_{name}_cor'] = df[col] *raw/vals
+    return df
+
+def flow_corr_lin(df, start_date,end_date, flow, cols, ratio0,ratio1, int0, int1,int2,name = ''):
+    r"""
+    Applies a linear correction to the flow value for vol conc adjustement
+    ----------
+    Paramaters
+    ++++++++++
+    df : [pd.DataFrame] Data to process.  
+    start_date : [pd.Datetime] Start date to begin the linear correction
+    end_date : [pd.Datetime] End date to stop the linear correction
+    flow : [str] Flow column name
+    cols : [list of str] CCN column names
+    ratio : [float] ratio between slopes for corr
+    int0 : [float] intercept from lin corr 0
+    int1 : [float] intercept from lin corr 1 
+    name : [str] name to pass for differentiating columns out (default = 0)
+
+    Returns
+    +++++++
+    df : [Pandas.DataFrame] Original Dataframe with Q corr column and CCN corr columns
+    """
+    dt = df.index.to_numpy()
+    T = pd.Timedelta(end_date-start_date).total_seconds()/60/60+1
+    dT = np.arange(T)
+    slope = (ratio1-ratio0)/T*dT
+    intercept = (int2-int1)/T*dT
+    flow_vals = df[flow].loc[start_date:end_date].to_numpy()
+    corr = (slope*(flow_vals*1000- int0)+intercept)*0.001
+    raw = df[flow].to_numpy()
+    df[f'{flow}_{name}_cor'] = raw
+    df.loc[start_date:end_date,f'{flow}_{name}_cor'] = corr
+    for col in cols: 
+        df[f'{col}_{name}_cor'] = df[col] *raw/df[f'{flow}_{name}_cor'].to_numpy()
     return df
 
 def CCN_EBAS(file_in,folder_out, ss_vals):
@@ -431,7 +498,7 @@ def CCN_EBAS(file_in,folder_out, ss_vals):
     dates= df.index.to_list()
     # input(np.isnan(np.sum(df.values.tolist())))
     ccn_corr_cols = [f'N(cm-3)_cor_stp_setpt{ss}' for ss in ss_vals]
-    ccn_header = [f'cloud_condensation_nuclei_number_concentration, 1/cm3, SS={sp}%' for sp in ss_vals]
+    ccn_header = [f'cloud_condensation_nuclei_number_concentration, ss={sp}%' for sp in ss_vals]
     ccn_cols = [f'ccnc[ss={sp}]' for sp in ss_vals]
     data = df[ccn_corr_cols].values.tolist()
     # df['flag'] = [000]

@@ -31,7 +31,7 @@ def set_fileglobal_metadata(nas):
 
     # Data Originator Organisation
     nas.metadata.org = DataObject(
-        OR_CODE='APP',
+        OR_CODE='US3446L',
         OR_NAME='Appalachian Atmospheric Interdisciplinary Research Program',
         OR_ACRONYM='AppalAIR', OR_UNIT='Department of Physics & Astronomy',
         OR_ADDR_LINE1='525 Rivers Street', OR_ADDR_LINE2=None,
@@ -77,15 +77,15 @@ def set_fileglobal_metadata(nas):
         ))
 
     # Station metadata
-    nas.metadata.station_code = 'APP' #<--ASK Dr. Sherman
-    nas.metadata.platform_code = 'APP'
+    nas.metadata.station_code = 'US3446S' #<--ASK Dr. Sherman
+    nas.metadata.platform_code = 'US3446C'
     nas.metadata.station_name = u'AppalAIR'
 
     nas.metadata.station_gaw_id = 'APP'#<--ASK Dr. Sherman
     nas.metadata.station_gaw_name = u'Appalachian State University'
     # nas.metadata.station_airs_id =    # N/A
     # nas.metadata.station_other_ids = '2'#<--ASK Dr. Sherman'
-    # nas.metadata.station_state_code =  # N/A
+    nas.metadata.station_state_code =  'US3446C'
     nas.metadata.station_landuse = 'Residential'
     nas.metadata.station_setting = 'Mountain'
     nas.metadata.station_gaw_type = 'R'#<--ASK Dr. Sherman'
@@ -98,9 +98,9 @@ def set_fileglobal_metadata(nas):
     # More file global metadata, but those can be overridden per variable
     # See set_variables for examples
     nas.metadata.instr_type = 'CCNC'
-    nas.metadata.lab_code = 'APP'#<--ASK Dr. Sherman'
+    nas.metadata.lab_code = 'US3446L'#<--ASK Dr. Sherman'
     nas.metadata.instr_name = 'CCN_100'
-    nas.metadata.method = 'APP_ccn'
+    nas.metadata.method = 'US3446L_ccn'
     nas.metadata.regime = 'IMG'
     nas.metadata.matrix = 'aerosol'
     # nas.metadata.comp_name ='cloud_condensation_nuclei_number_concentration'
@@ -202,6 +202,7 @@ def ebas_genfile(path,data,flag,date, headers,cols):
     Returns:
         none
     """
+    path_out = os.path.join(path, 'ACTRIS')
 
     # Create an EbasNasaAmes file object
     nas = nasa_ames.EbasNasaAmes()
@@ -217,7 +218,7 @@ def ebas_genfile(path,data,flag,date, headers,cols):
     # write the file:
     # with open(r"C:\Users\bensy\Documents\Research\EBAStest.txt", "w") as text_file:
     #     text_file.write(str(nas.variables))
-    nas.write(createfiles=True, destdir=path)
+    nas.write(createfiles=True, destdir=path_out)
     # createfiles=True
     #     Actually creates output files, else the output would go to STDOUT.
     # You can also specify:
