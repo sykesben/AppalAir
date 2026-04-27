@@ -19,10 +19,11 @@ import time
 from CCN_process import *
 
 dev = True
-file = expanduser("~/Documents/Research/CCN_Clean_2025_1min_test.csv")
+file = expanduser("~/Documents/Research/CCN_Clean_2026_1min.csv")
 ini_file = expanduser("~/Documents/Research/CCN 100.ini")
-file_out = expanduser("~/Documents/Research/CCN_Processed_2025_1hr.csv")
+file_out = expanduser("~/Documents/Research/CCN_Processed_2026_1hr.csv")
 ebas_out = expanduser("~/Documents/Research")
+bad_dates = [pd.to_datetime('10/01/2025 00:00:00'),pd.to_datetime('12/01/2025 00:00:00')]
 
 
 def main():
@@ -31,7 +32,7 @@ def main():
     is active it assumes files paths were provided within the global 
     environment in an attempt to minimize required inputs.    
     +++====1 Read In Files 1===='''
-    global file, ini_file, file_out, ebas_out
+    global file, ini_file, file_out, ebas_out, bad_dates
     #region 
     if not dev:
         file = input('Provide path for CCN yearly file...')

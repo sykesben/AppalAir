@@ -14,33 +14,29 @@ EMAIL = "sykesbb@appstate.edu"  # <-- put your AQS-registered email here
 KEY = "saffroncrane32"         # <-- put your AQS key here
 
 BASE_URL = "https://aqs.epa.gov/data/api/sampleData/byState"
-BDATE = "20250101"
-EDATE = "20250131"
+BDATE = "20240101"
+EDATE = "20241231"
 
 
 # State codes and species (parameters)
 states = {
-    "NC": "37"}
-'''
+    "NC": "37",
     "GA": "13",
     "KY": "21",
     "SC": "45",
     "TN": "47",
     "VA": "51",
-    "WV": "54",
-'''
+    "WV": "54"}
 
 params = {
+    "Press":  "68108",
+    "Temp":   "68105",
     "NH4":  "88301",
     "EC":   "88321",
     "NO3":  "88306",
     "OC":   "88320",
-    "SO4":  "88403",
-    "O3": '44201',
-    "NOx" : "42600",
-    "Light Absorption Coeff":"63102"}
-    # "PM25": "88101",  
-    # "PM10": "81102",
+    "SO4":  "88403",}
+    # "PM25": "88101",}
 
 # Output directories
 OUTDIR_JSON = expanduser("~/Documents/Research/AQS_Json/")
@@ -64,7 +60,7 @@ def fetch_aqs_response(state_code, param_code):
        # "format": "application/json",
     }
 
-    resp = requests.get(BASE_URL, params=params_req, timeout=300)
+    resp = requests.get(BASE_URL, params=params_req, timeout=500)
 
     try:
         resp.raise_for_status()
