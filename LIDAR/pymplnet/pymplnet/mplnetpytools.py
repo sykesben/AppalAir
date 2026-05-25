@@ -1064,9 +1064,8 @@ def MinuteAvg(filename, files, variable):
     alt_arr = np.linspace(1.1549481, 31.059248, 400)
     alt_arr_str = ['']*400
 
-    #create array of Julian Day Numbers incremented by 1 hour starting at Midnight of the first selected day ending at 23:00 of final day
-    time_min = np.linspace(df.index[0]-(30/(24*60*60)), df.index[len(df.index)-1]-(30/(24*60*60)), int((len(df.index))))
-    time_min = pd.to_datetime(time_min, unit = 'D', origin = 'julian').round(freq='T')
+    #convert julian time indeces to pandas datetime rounded to the second
+    time_min = pd.to_datetime(df.index, unit = 'D', origin = 'julian').round(freq='s')
     if (variable == 'cloud_base' or variable == 'cloud_top'): 
         #if cld_base or cld_top, change to a 1 column array of 1s and 0s, 1 if there is a cloud and 0 if there is not a cloud.
         df = df.drop(df.iloc[:, 1:], axis=1)
@@ -1108,8 +1107,7 @@ def HrAvg(filename, files, variable):
 
     #create array of Julian Day Numbers incremented by 1 hour starting at Midnight of the first selected day ending at 23:00 of final day
     #might not need this line as the resample function might do it for you
-    time_hrs = np.linspace(df.index[0]-(30/(24*60*60)), df.index[len(df.index)-60]-(30/(24*60*60)), int((len(df.index))))
-    df['Datetime'] = pd.to_datetime(time_hrs, unit = 'D', origin = 'julian').round(freq='h')
+    df['Datetime'] = pd.to_datetime(df.index, unit = 'D', origin = 'julian').round(freq='s')
 
     #makes the index of the dataframe the datetimes
     df = df.set_index('Datetime')

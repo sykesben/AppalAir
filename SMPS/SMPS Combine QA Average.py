@@ -18,7 +18,7 @@ from pathlib import Path
 from datetime import datetime
 
 def main():
-
+    
     #ask user if they would like to combine files
     CombineFilesYN = input("\nWould you like to combine files? (Y/N)\n")
     if CombineFilesYN == 'Y':                                                   #if yes, run CombineFiles
