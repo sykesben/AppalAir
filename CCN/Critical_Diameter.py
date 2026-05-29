@@ -12,7 +12,9 @@ import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 from scipy.optimize import least_squares as LSfit
 from datetime import datetime 
-from CombineData import comb_files
+from CombineData import comb_files,smps_means
+import time
+import sys
 import re
 pd.set_option('mode.chained_assignment', None)
 plt.rcParams['font.size'] = 18
@@ -92,7 +94,7 @@ def kappa_calc(ss, Dcrit, T=298):
     if Dcrit ==0.0:
         kappa = 100
     else:
-        kappa = (4 * A**3) / (27 * Dcrit**3 *ss**2)
+        kappa = (4 * A**3) / (27 * Dcrit**3 *np.log(1+ss)**2)
     return kappa
 
 def find_mid(D_top, D_bot, diff_top, diff_bot):
@@ -125,7 +127,7 @@ find_perc_above : Calculates the fraction of particles that are
 find_activation : Calculates the activation fraction of aerosols
   larger than a given diameter
 +++======Finding Calculation Functions======'''
-def find_cutoff(data, diams, ss_cols, Kappa = 0.1):
+def find_cutoff(data, diams, ss_cols, D50 = False):
     """
     Calculates the critical diameter and hygroscopicity using N_CCN and N_CN data from the SMPS
     ----------
@@ -147,8 +149,11 @@ def find_cutoff(data, diams, ss_cols, Kappa = 0.1):
         cnt_at_ss = data[col]  # N_CCN(ss) 
         devs = []
         for diam in diams:
-            cnt_at_diam = data[diam] # N_CN
-            dev = cnt_at_ss-cnt_at_diam # find where 100% of the total particles can activate as CCN
+            cnt_at_diam = np.mean(data[diam]) # N_CN
+            if D50:
+                dev = cnt_at_ss-cnt_at_diam*0.5
+            else:
+                dev = cnt_at_ss-cnt_at_diam # find where 100% of the total particles can activate as CCN
             devs.append(float(dev))
         devs = np.array(devs)
         devs = devs[:-1] #remove the 'total particle' value from end of array
@@ -189,7 +194,7 @@ def find_cutoff(data, diams, ss_cols, Kappa = 0.1):
                 kappa[ss] = [kappa_mid, kappa_bot,kappa_top]
     return cut_off, kappa
 
-def find_perc_above(data, diams, ss_cols, grtr_dict, Kappa = 0.1):
+def find_perc_above(data, diams, ss_cols, grtr_dict,freq = 'd', Kappa = 0.1, cut_offs = 0):
     """
     Calculates the number of particles larger than a kohler calculated critical diameter in comparison to the
     CCN activation fraction
@@ -209,11 +214,27 @@ def find_perc_above(data, diams, ss_cols, grtr_dict, Kappa = 0.1):
     dt = pd.to_datetime(data.name)
     year = str(dt.year).replace('20','')
     month = dt.month
-    grtr_dict['Date'].append(f'{month}/{year}')
+    day = dt.day
+    hour = dt.hour
+    if (freq == 'd')|(freq == 'w'):
+        grtr_dict['Date'].append(f'{day}/{month}/{year}')
+    elif freq == 'h':
+        grtr_dict['Date'].append(f'{day}/{month}/{year}-{hour}:00:00')
+    else:
+        grtr_dict['Date'].append(f'{month}/{year}')
     for col in ss_cols:
         ss = col.split('cor_setpt')[-1] 
-        est_D = critical_diameter(ss,kappa=Kappa) # Kohler defined critical Diameter at given hygoscopicity and super saturation
-        greater_than_diam = [d for d in diams[:-1] if float(d.replace('>','').replace('nm',''))>est_D][0] # first bin size greater than calculated Diameter
+        if isinstance(cut_offs,int):
+            est_D = critical_diameter(ss,kappa=Kappa) # Kohler defined critical Diameter at given hygoscopicity and super saturation
+            print(est_D)
+        else:
+            print(ss)
+            print(cut_offs[ss])
+            est_D = cut_offs[ss][0]
+        try: # first bin size greater than calculated Diameter
+            greater_than_diam = [d for d in diams[:-1] if float(d.replace('>','').replace('nm',''))>est_D][0] 
+        except: 
+            greater_than_diam = diams[-1]
         frac_above_diam = data[greater_than_diam]/data[diams[-1]] # N_>D/N_CN
         frac_at_ss = data[col]/data[diams[-1]] # N_CCN/N_CN
         grtr_dict[f'F>Dcrit({ss})'].append(frac_above_diam)
@@ -237,19 +258,28 @@ def find_activation(data, diams, ss_cols):
     act_perc = {}
     d_index = [float(x.replace('>','').replace('nm','')) for x in diams[:-1]]
     act_perc['Diameter'] = d_index
+    grtrs = []
     for col in ss_cols:
         ss = col.split('cor_setpt')[-1] 
         cnt_at_ss = data[col]
         Acts = []
         for diam in diams:
-            cnt_at_diam = data[diam]
+            cnt_at_diam = np.mean(data[diam])
             Act = cnt_at_ss/cnt_at_diam #% of the total particles that activated as CCN
             Acts.append(float(Act))
+            if col == ss_cols[0]:
+                cnt_total = data[diams[-1]]
+                grtrs.append(float(cnt_at_diam/cnt_total))
         Acts = np.array(Acts)
         Acts = Acts[:-1]
         indices = np.where(~np.isnan(Acts))[0]  # Get integer indices
         Acts = Acts[indices]  # Use integer indices to filter 
         act_perc[f'F_act_{ss}'] = Acts 
+    grtrs = np.array(grtrs)
+    grtrs = grtrs[:-1]
+    indices = np.where(~np.isnan(grtrs))[0]  # Get integer indices
+    grtrs = grtrs[indices]  # Use integer indices to filter 
+    act_perc[f'F_gt'] = grtrs
     return act_perc
 
 '''======Generate Curves From the Data Sets======+++
@@ -259,7 +289,7 @@ kappa_curve : Generates hygroscopicity curves
 Fact_curve : Activation fraction at diameter curves
 Fract_curve : Activation fraction and fraction above Dcrit
 +++======Generate Curves From the Data Sets======'''
-def cut_off_curve(data, ideal = 0,freq = 'M'):
+def cut_off_curve(data, ideal = 0,freq = 'M',plot =['scat']):
     '''
     Takes in a dataframe of SMPS and CCN data and generates interactive plots of the critical diameter
     ----------
@@ -325,7 +355,10 @@ def cut_off_curve(data, ideal = 0,freq = 'M'):
     bad_szns = ['spring/24','autumn/25','summer/26', 'autumn/26']
     bad_mnths = ['9/25', '10/25','11/25']
     slct = [c for c in data.columns.to_numpy() if ('cutoff' in c)&(not any(y in c for y in bad_szns))&(not any(y in c for y in bad_mnths))]# & ('autumn' not in c)] 
-    scat_call(data, slct, freq=freq)
+    if ('scat' in plot):
+        scat_call(data, slct, freq=freq)
+    if ('line' in plot):
+        line_call(data, slct, x_label="Date", y_label=r'D$_{crit}$[nm]', title='Temporal Variablity in Critical Diameter')
     input(data)
 
 def kappa_curve(data,freq = 'M', plot = ['scat']):
@@ -441,7 +474,6 @@ def Fact_curve(data,freq = 'M', group ='all', ss_choices = ['0.1','0.4','0.7']):
                     for szn in np.unique(szns):
                         s_idx = [i for i,c in enumerate(select) if (szn in c)&(yr in c)&(c.split('_')[0] == ss)]
                         act_col = [cols[i] for i in s_idx]
-                        print(act_col)
                         data[f'Fact_{szn}/{yr}'] = data[act_col].mean(axis =1)
                         szn_cols.extend([f'Fact_{szn}/{yr}'])
                 plot_data = data[szn_cols]
@@ -497,7 +529,6 @@ def Fract_curve(data,freq = 'M', group ='all', Kappa =0.1, ss_choices = ['0.1','
     if freq =='S':
         szn = ['_'.join([seasons(float(c.split('/')[0])),c.split('/')[-1]]) for c in data.index.to_numpy()]
         data['seasons'] = szn
-        print(data)
         data = data.groupby(['seasons']).mean()
         dataf= data.copy()
         ss_vals= sorted({float(re.search(r"\((.*?)\)", col).group(1)) for col in dataf.columns})
@@ -524,7 +555,6 @@ def Fract_curve(data,freq = 'M', group ='all', Kappa =0.1, ss_choices = ['0.1','
     bad_szns = ['spring_24','autumn_25','summer_26', 'autumn_26']
     plot_data = long_df[~long_df["season"].isin(bad_szns)]
     plot_data = plot_data.dropna(how='any')
-    print(np.unique(long_df.season.to_numpy()))
     scat_call_frac_simple(plot_data)
     scat_call_frac_kappa(plot_data)
     scat_call_frac(plot_data,Kappa = Kappa, append=ss)
@@ -568,7 +598,10 @@ def line_call(data, slct, y_label, x_label, title, freq = 'S', ss_vals = ['0.1',
     for ss in ss_vals:
         y.append(filt.filter(items = [ss],axis=0).to_numpy()[0])
         leg.append(f'κ(ss={ss})')
-    dates =pd.to_datetime(dates,format='%-d/%-m/%y').to_numpy()
+    if f in ['d','W']:
+        dates =pd.to_datetime(dates,format='%-d/%-m/%y').to_numpy()
+    if f == 'h':
+        dates =pd.to_datetime(dates,format='%-d/%-m/%y-%H:%M:%S').to_numpy()
     line_plot(dates,y,leg, y_label=y_label, x_label=x_label, title=title)
 
 def line_plot(x,y,legs, x_label, y_label, title):
@@ -641,10 +674,14 @@ def scat_call(data,slct,freq = 'S',name = r'D$_{crit}$',yerr_inc = True, title =
               'winter' :{'25':'#2732CC','24':'#8295E0','26': "#200F80"},
               'spring' :{'25':"#00AE2E",'24':'#85F57F','26':'#046E35',},
               'autumn' :{'25':"#FFE202",'24':"#F5E6A1",'26':"#ADAA0C"},}
-    colors_month = {'25':{'1':"#701DBE",'2':"#3314BB",'3':"#029B89",
+    colors_month = {'24':{'1':"#701DBE",'2':"#3314BB",'3':"#029B89",
                       '4':"#029D4D",'5':"#00821E",'6':"#A6A902",
                       '7':"#A99002",'8':"#C38500",'9':"#A94502",
-                      '10':"#A93A02",'11':"#A90202",'12':"#A90298",}, 
+                      '10':"#A93A02",'11':"#A90202",'12':"#A90298",},
+                    '25':{'1':"#34085D",'2':"#180959",'3':"#0E6157",
+                      '4':"#044E28",'5':"#395E26",'6':"#696A1B",
+                      '7':"#73661A",'8':"#4A3A16",'9':"#4D2002",
+                      '10':"#682504",'11':"#4A0909",'12':"#4E0747",}, 
                     '26':{'1':"#9B36F9",'2':"#6D4CFE",'3':"#2DDDC9",
                       '4':"#2ED981",'5':"#2ABF4D",'6':"#DDE028",
                       '7':"#DDC01E",'8':"#FFB005",'9':"#FF6600",
@@ -654,11 +691,10 @@ def scat_call(data,slct,freq = 'S',name = r'D$_{crit}$',yerr_inc = True, title =
         if 'ideal' in date: 
             color = "#0E1112"
         else:
-            if freq == 'M':
+            if (freq == 'M')|(freq == 'ME'):
                 month, yr = date.split('/')
                 color = colors_month[yr][month]
             elif (freq == 'd')|(freq == 'w'):
-                print(date)
                 day,month,yr = date.split('/')
                 color = colors_month[yr][month]
             else:
@@ -892,25 +928,58 @@ def scat_plot_frac(x,y, legs,colors,style, Kappa =0.1, title =0):
     input('Press enter to exit plot...')
     plt.ioff()
 
-
 """Calls in the functions"""
 if __name__ == '__main__':
-    bad_dates = [[pd.to_datetime('10/01/2025 00:00:00'),pd.to_datetime('12/15/2025 00:00:00')],[pd.to_datetime('07/01/2025 00:00:00'),pd.to_datetime('07/24/2025 00:00:00')],[pd.to_datetime('08/06/2025 00:00:00'),pd.to_datetime('08/14/2025 00:00:00')]]
-    smps =[r"C:\Users\bensy\Documents\Research\2024_SMPS_NumberSizeDist_1hr.csv",r"C:\Users\bensy\Documents\Research\SMPS_NumberSizeDist_2025_1hr.csv",r"C:\Users\bensy\Documents\Research\2026_SMPS_NumberSizeDist_1hr.csv"]  #list(input('Provide paths to SMPS file(s). Seperate multiples with a comma: ').replace('"','').split(','))
-    ccn = [r"C:\Users\bensy\Documents\Research\CCN_Processed_2025_1hr.csv",r"C:\Users\bensy\Documents\Research\CCN_Processed_2026_1hr.csv"]  #r"C:\Users\bensy\Documents\Research\CCN_Processed_2024_1hr.csv"  #[r"C:\Users\bensy\Documents\Research\CCN_Processed_2025_1hr.csv"]#  #list(input('Provide paths to CCN file(s). Seperate multiples with a comma: ').replace('"','').split(','))
+    D50 = False
+    bad_dates = [[pd.to_datetime('10/01/2025 00:00:00'),pd.to_datetime('12/31/2025 00:00:00')],[pd.to_datetime('07/01/2025 00:00:00'),pd.to_datetime('07/24/2025 00:00:00')],[pd.to_datetime('08/06/2025 00:00:00'),pd.to_datetime('08/14/2025 00:00:00')],[pd.to_datetime('06/01/2024 00:00:00'),pd.to_datetime('07/30/2024 00:00:00')],[pd.to_datetime('10/20/2024 00:00:00'),pd.to_datetime('10/27/2024 00:00:00')],[pd.to_datetime('01/01/2026 00:00:00'),pd.to_datetime('01/09/2026 18:00:00')]]
+    smps =[r"C:\Users\bensy\Documents\Research\2026_SMPS_NumberSizeDist_1hr.csv",r"C:\Users\bensy\Documents\Research\2024_SMPS_NumberSizeDist_1hr.csv",r"C:\Users\bensy\Documents\Research\SMPS_NumberSizeDist_2025_1hr.csv"]  #list(input('Provide paths to SMPS file(s). Seerate multiples with a comma: ').replace('"','').split(','))
+    ccn = [r"C:\Users\bensy\Documents\Research\CCN_Processed_2026_1hr.csv",r"C:\Users\bensy\Documents\Research\CCN_Processed_2025_1hr.csv",r"C:\Users\bensy\Documents\Research\CCN_Processed_2024_1hr.csv"]  #r"C:\Users\bensy\Documents\Research\CCN_Processed_2024_1hr.csv"  #[r"C:\Users\bensy\Documents\Research\CCN_Processed_2025_1hr.csv"]#  #list(input('Provide paths to CCN file(s). Seperate multiples with a comma: ').replace('"','').split(','))
     master =  r"C:\Users\bensy\Downloads\MasterDataFile_ChemAOPsCCNSMPSMET_June2024-Oct2025.csv"
-    f = 'W'
-    kappa = 0.1
-    kappa1 = 0.1
-    kappa2 = 0.2
+    f = 'ME'
+    kappa =0.1
+    kappa_compare = pd.read_csv(r"C:\Users\bensy\Documents\Research\CCN_hourly_AD_Kappa_SSset_2025_Version09112025.csv")
+    kappa_compare=kappa_compare.set_index("HourlyDateTime")
+    kappa_compare.index = pd.to_datetime(kappa_compare.index, format='mixed')
+    kappa_compare['SS_eff'] = np.round(kappa_compare['SS_eff'].to_numpy(), 2)
+    kappa_compare = kappa_compare[kappa_compare['SS_eff']==0.10]
+    kappa_compare['Kappa(ss=0.1)_compare'] = kappa_compare['Kappa']
+    kappa_compare['Activation_Dp(ss=0.1)_compare'] = kappa_compare['Activation_Dp']
+    kappa_compare = kappa_compare[['Activation_Dp(ss=0.1)_compare','Kappa(ss=0.1)_compare']]
+    kappa_compare = kappa_compare.resample(f).mean()
     dataout = r"C:\Users\bensy\Documents\Research\CCN_activation_diameter_test.csv"
-    data,ss_cols,diam_cols = comb_files(smps,ccn, freq=f)
+    data,ss_cols,diam_cols = comb_files(smps,ccn, freq=f,D50=True)
+    smps_mean = smps_means(smps,freq = f)
+    data = data.dropna(thresh=23)
     smps_data = data[diam_cols]
-    data.to_csv(r"C:\Users\bensy\Documents\Research\check.csv")
+    if False: 
+        Data_in = pd.read_csv(r'C:\Users\bensy\Documents\Research\CCN_SMPS_processed_parameters.csv', index_col=0)
+        Data_in.index = pd.to_datetime(Data_in.index, format='mixed')
+        Data_in = Data_in.dropna(how='any')
+        # Data_in = pd.merge(Data_in, smps_mean,left_index = True, right_index = True,how='left')
+        # input(Data_in.columns.to_numpy())
+        # ccn_data = data[['N(cm-3)_cor_setpt0.1','N(cm-3)_cor_setpt0.15','N(cm-3)_cor_setpt0.25',"N(cm-3)_cor_setpt0.4",'N(cm-3)_cor_setpt0.7']].copy()
+        # Data_in = pd.merge(Data_in, ccn_data,left_index = True, right_index = True,how='left')
+        # input(Data_in)
+        plt.ion()
+        fig, ax = plt.subplots()
+        cdf = Data_in.resample('ME').mean()
+        normed =(cdf-cdf.min())/(cdf.max()-cdf.min())
+        input(normed.columns.to_numpy())
+        normed = normed.dropna(how='any')
+        ax.plot(normed['N(cm-3)_cor_setpt0.7'],label = 'N_CCN(ss=0.7)')
+        ax.plot(normed['Kappa(ss=0.7)'],label = 'kappa(ss=0.7)')
+        ax.plot(normed['Geo. Mean (nm)'],label = 'Geo.Mean D[nm]')
+        ax.legend()
+        ax.set_ylabel('Normalized Trends[1]')
+        ax.set_xlabel('Date')
+        ax.set_title('Trend analysis of CCN Data')
+        input('Press enter to exit plot...')
+        plt.ioff()
     mask = pd.Series(False, index=data.index)
     for date in bad_dates:
         mask |= (data.index >= date[0]) & (data.index <= date[-1])
     data = data[~mask]
+    data.to_csv(r"C:\Users\bensy\Documents\Research\check.csv")
     codf = pd.DataFrame()
     kapdf = pd.DataFrame()
     actdf = pd.DataFrame()
@@ -921,79 +990,145 @@ if __name__ == '__main__':
         grtr_dict[f'Fact({ss})'] =[]
     for row in range(len(data.index.to_numpy())):
         d = data.iloc[row]
-        print(len(d[d.isna()].to_numpy()))
-        if len(d[d.isna()].to_numpy())<1:
-            cut_offs,kappas = find_cutoff(d,diam_cols,ss_cols)
-            print(cut_offs)
-            print(kappas)
-            act_perc =find_activation(d,diam_cols,ss_cols)
-            grtr_dict = find_perc_above(d,diam_cols,ss_cols, grtr_dict, Kappa=kappa)
-            Dcrit_ideal1 = {'0.1':[critical_diameter(0.1,kappa=kappa1),critical_diameter(0.1,kappa=kappa1),critical_diameter(0.1,kappa=kappa1)],
-                            '0.15':[critical_diameter(0.15,kappa=kappa1),critical_diameter(0.15,kappa=kappa1),critical_diameter(0.15,kappa=kappa1)],
-                            '0.25':[critical_diameter(0.25,kappa=kappa1),critical_diameter(0.25,kappa=kappa1),critical_diameter(0.25,kappa=kappa1)],
-                            '0.4':[critical_diameter(0.4,kappa=kappa1),critical_diameter(0.4,kappa=kappa1),critical_diameter(0.4,kappa=kappa1)],
-                            '0.7':[critical_diameter(0.7,kappa=kappa1),critical_diameter(0.7,kappa=kappa1),critical_diameter(0.7,kappa=kappa1)]}
-            Dcrit_ideal2 = {'0.1':[critical_diameter(0.1,kappa=kappa2),critical_diameter(0.1,kappa=kappa2),critical_diameter(0.1,kappa=kappa2)],
-                            '0.15':[critical_diameter(0.15,kappa=kappa2),critical_diameter(0.15,kappa=kappa2),critical_diameter(0.15,kappa=kappa2)],
-                            '0.25':[critical_diameter(0.25,kappa=kappa2),critical_diameter(0.25,kappa=kappa2),critical_diameter(0.25,kappa=kappa2)],
-                            '0.4':[critical_diameter(0.4,kappa=kappa2),critical_diameter(0.4,kappa=kappa2),critical_diameter(0.4,kappa=kappa2)],
-                            '0.7':[critical_diameter(0.7,kappa=kappa2),critical_diameter(0.7,kappa=kappa2),critical_diameter(0.7,kappa=kappa2)]}
+        if len(d[d.isna()].to_numpy())<6:
+            cut_offs,kappas = find_cutoff(d,diam_cols,ss_cols,D50 = D50)
+            # act_perc =find_activation(d,diam_cols,ss_cols)
+            grtr_dict = find_perc_above(d,diam_cols,ss_cols, grtr_dict,freq =f,Kappa=kappa,cut_offs=cut_offs)
             if row == 0:
                 dt = pd.to_datetime(data.index.to_numpy()[row])
                 year = str(dt.year).replace('20','')
                 month = dt.month
                 day = dt.day
+                hour = dt.hour
+                print(str(day)+'/'+str(month)+'/'+str(year))
                 codf = pd.DataFrame(cut_offs).T
                 kapdf= pd.DataFrame(kappas).T
-                actdf = pd.DataFrame(act_perc)
-                actdf = actdf.set_index('Diameter')
+                # if not(len(act_perc['F_gt']) ==0): #is not empty
+                #     actdf = pd.DataFrame(act_perc)
+                #     actdf = actdf.set_index('Diameter')
                 if f == 'ME':
                     codf.columns = [f'D_cutoff_{month}/{year}',f'D_lower_{month}/{year}',f'D_upper_{month}/{year}']
                     kapdf.columns = [f'Kappa_cutoff_{month}/{year}',f'Kappa_lower_{month}/{year}',f'Kappa_upper_{month}/{year}']
-                    actdf = actdf.add_suffix(f'_{month}/{year}')
-                else: 
+                    # if not(len(act_perc['F_gt']) ==0):
+                    #     actdf = actdf.add_suffix(f'_{month}/{year}')
+                elif f in ['d','W','w']: 
                     codf.columns = [f'D_cutoff_{day}/{month}/{year}',f'D_lower_{day}/{month}/{year}',f'D_upper_{day}/{month}/{year}']
                     kapdf.columns = [f'Kappa_cutoff_{day}/{month}/{year}',f'Kappa_lower_{day}/{month}/{year}',f'Kappa_upper_{day}/{month}/{year}']
-                    actdf = actdf.add_suffix(f'_{day}/{month}/{year}')
+                    # if not(len(act_perc['F_gt']) ==0):
+                    #     actdf = actdf.add_suffix(f'_{day}/{month}/{year}')
+                else:
+                    codf.columns = [f'D_cutoff_{day}/{month}/{year}-{hour}:00:00',f'D_lower_{day}/{month}/{year}-{hour}:00:00',f'D_upper_{day}/{month}/{year}-{hour}:00:00']
+                    kapdf.columns = [f'Kappa_cutoff_{day}/{month}/{year}-{hour}:00:00',f'Kappa_lower_{day}/{month}/{year}-{hour}:00:00',f'Kappa_upper_{day}/{month}/{year}-{hour}:00:00']
             else: 
                 dt = pd.to_datetime(data.index.to_numpy()[row])
                 year = str(dt.year).replace('20','')
                 month = dt.month
                 day = dt.day
+                hour = dt.hour
+                print(str(day)+'/'+str(month)+'/'+str(year) + '-'+str(hour)+':00:00')
+                # if year == '26':
+                #     print(act_perc)
+                #     input("The size of the dictionary is {} bytes".format(sys.getsizeof(act_perc)))
                 df = pd.DataFrame(cut_offs).T
                 kdf = pd.DataFrame(kappas).T
-                adf = pd.DataFrame(act_perc)
-                adf = adf.set_index('Diameter')
+                # if not(len(act_perc['F_gt']) ==0):
+                #     adf = pd.DataFrame(act_perc)
+                #     adf = adf.set_index('Diameter')
                 if f == 'ME':
                     df.columns = [f'D_cutoff_{month}/{year}',f'D_lower_{month}/{year}',f'D_upper_{month}/{year}']
                     kdf.columns = [f'Kappa_cutoff_{month}/{year}',f'Kappa_lower_{month}/{year}',f'Kappa_upper_{month}/{year}']
-                    adf = adf.add_suffix(f'_{month}/{year}')
-                else: 
+                    # if not(len(act_perc['F_gt']) ==0):
+                    #     adf = adf.add_suffix(f'_{month}/{year}')
+                elif f in ['d','W','w']: 
                     df.columns = [f'D_cutoff_{day}/{month}/{year}',f'D_lower_{day}/{month}/{year}',f'D_upper_{day}/{month}/{year}']
-                    kdf.columns = [f'Kappa_cutoff_{day}/{month}/{year}',f'Kappa_lower_{day}/{month}/{year}',f'Kappa_upper_{day}/{month}/{year}']
-                    adf = adf.add_suffix(f'_{day}/{month}/{year}')
-                if (kdf.loc['0.7'][f'Kappa_cutoff_{day}/{month}/{year}']>=0.4).any():
-                    print(kdf)
+                    kapdf.columns = [f'Kappa_cutoff_{day}/{month}/{year}',f'Kappa_lower_{day}/{month}/{year}',f'Kappa_upper_{day}/{month}/{year}']
+                    # if not(len(act_perc['F_gt']) ==0):
+                    #     actdf = actdf.add_suffix(f'_{day}/{month}/{year}')
                 else:
-                    kapdf = pd.merge(kapdf,kdf, left_index=True, right_index=True)
-                    codf = pd.merge(codf,df, left_index=True, right_index=True)
-                    actdf = pd.merge(actdf, adf, left_index=True, right_index=True)
-    # iddf = pd.DataFrame(Dcrit_ideal1).T
-    # iddf2 = pd.DataFrame(Dcrit_ideal2).T
-    # ideal = [f'D_cutoff_ideal(κ={kappa1})',f'D_lower_ideal(κ={kappa1})',f'D_upper_ideal(κ={kappa1})',f'D_cutoff_ideal(κ={kappa2})',f'D_lower_ideal(κ={kappa2})',f'D_upper_ideal(κ={kappa2})']
-    # iddf.columns = [f'D_cutoff_ideal(κ={kappa1})',f'D_lower_ideal(κ={kappa1})',f'D_upper_ideal(κ={kappa1})']
-    # iddf2.columns = [f'D_cutoff_ideal(κ={kappa2})',f'D_lower_ideal(κ={kappa2})',f'D_upper_ideal(κ={kappa2})']
-    # codf = pd.merge(codf,iddf, left_index=True, right_index=True)
-    # codf = pd.merge(codf,iddf2, left_index=True, right_index=True)
+                    df.columns = [f'D_cutoff_{day}/{month}/{year}-{hour}:00:00', f'D_lower_{day}/{month}/{year}-{hour}:00:00',f'D_upper_{day}/{month}/{year}-{hour}:00:00']
+                    kdf.columns = [f'Kappa_cutoff_{day}/{month}/{year}-{hour}:00:00',f'Kappa_lower_{day}/{month}/{year}-{hour}:00:00',f'Kappa_upper_{day}/{month}/{year}-{hour}:00:00']
+                kapdf = pd.merge(kapdf,kdf, left_index=True, right_index=True)
+                codf = pd.merge(codf,df, left_index=True, right_index=True)
+                kapdf.loc['0.7', kapdf.loc['0.7'] > 0.6] = np.nan
+                kapdf[kapdf>1.5] = np.nan
+                codf[codf < 10] = np.nan
+                codf[codf > 300] = np.nan
+                # if not(len(act_perc['F_gt']) ==0):
+                #     actdf = pd.merge(actdf, adf, left_index=True, right_index=True)
     grtr_df = pd.DataFrame(grtr_dict)
     grtr_df = grtr_df.set_index('Date')
-    # Fract_curve(grtr_df, freq ='S', Kappa=kappa)
-    # Fact_curve(actdf, freq='S')
-    # kapdf = kapdf.drop(index='0.1')
-    # codf = codf.drop(index='0.1')
-    # cut_off_curve(codf, freq ='M')
-    kappa_curve(kapdf, freq ='w')
-    out = input("Enter filepath to export data as a csv, or press 'enter' to skip: ")
-    if out != '':
-        codf.to_csv(out)
+    '''Clean up data sets'''
+    if f in ['d','W','w','h']:
+        kappa_curve(kapdf, plot=['line'],freq ='d')
+        cut_off_curve(codf, plot=['line'],freq ='d')
+        # critical diameter
+        co_cols = [col for col in codf.columns.to_numpy() if 'cutoff' in col]
+        Dcrit_data = codf[co_cols]
+        Dcrit_data.columns = Dcrit_data.columns.str.replace("D_cutoff_", "", regex=True)
+        Dcrit_data = Dcrit_data.add_prefix('Dcrit(ss=', axis='index')
+        Dcrit_data = Dcrit_data.add_suffix(')', axis='index')
+        Dcrit_data = Dcrit_data.T
+        print(Dcrit_data.index)
+        Dcrit_data.index = pd.to_datetime(Dcrit_data.index, dayfirst=True)
+        # hygroscopicity
+        k_cols = [col for col in kapdf.columns.to_numpy() if 'cutoff' in col]
+        Kappa_data = kapdf[k_cols]
+        Kappa_data.columns = Kappa_data.columns.str.replace("Kappa_cutoff_", "", regex=True)
+        Kappa_data = Kappa_data.add_prefix('Kappa(ss=', axis='index')
+        Kappa_data = Kappa_data.add_suffix(')', axis='index')
+        Kappa_data = Kappa_data.T
+        print(Kappa_data.index)
+        Kappa_data.index = pd.to_datetime(Kappa_data.index, dayfirst=True)
+        Data_out = pd.merge(Dcrit_data,Kappa_data,left_index = True, right_index = True)
+        # activation fraction 
+        Fa_cols = [col for col in grtr_df.columns.to_numpy() if 'Fact' in col]
+        Fact_data = grtr_df[Fa_cols]
+        Fact_data.columns = Fact_data.columns.str.replace("Fact(", "Fact(ss=")
+        print(Fact_data)
+        Fact_data.index = pd.to_datetime(Fact_data.index, dayfirst=True)
+        Data_out = pd.merge(Data_out,Fact_data,left_index = True, right_index = True)
+        Data_out = pd.merge(Data_out,smps_mean,left_index = True, right_index = True,how='left')
+        print(smps_mean)
+        ccn_data = data[['N(cm-3)_cor_setpt0.1','N(cm-3)_cor_setpt0.15','N(cm-3)_cor_setpt0.25',"N(cm-3)_cor_setpt0.4",'N(cm-3)_cor_setpt0.7']].copy()
+        Data_out = pd.merge(Data_out,ccn_data,left_index = True, right_index = True,how='left')
+        input(Data_out)
+        # Data_ou= Data_out.dropna(thresh=7)
+        Dps = ['Dcrit(ss=0.1)','Dcrit(ss=0.15)','Dcrit(ss=0.25)','Dcrit(ss=0.4)','Dcrit(ss=0.7)']
+        Data_out = Data_out[~Data_out[Dps].isna().all(axis=1)]
+        Comparison = pd.merge(Data_out[['Dcrit(ss=0.1)','Kappa(ss=0.1)']],kappa_compare,left_index = True, right_index = True)
+        
+        Comparison.to_csv(r"C:\Users\bensy\Documents\Research\Kappa_Comp_Charged.csv")
+        # Activation_dist = pd.DataFrame()
+        # for ss in ['0.1','0.15','0.25','0.4','0.7']:
+        #     ss_cols = [col for col in actdf.columns.to_numpy() if f'{ss}_' in col]
+        #     ss_dist = actdf[ss_cols]
+        #     ss_dist.columns = ss_dist.columns.str.replace(f"F_act_{ss}_", "")
+        #     ss_dist = ss_dist.add_prefix(f'Fact(ss={ss})[', axis='index')
+        #     ss_dist = ss_dist.add_suffix('nm]', axis='index')
+        #     ss_dist = ss_dist.T
+        #     ss_dist.index = pd.to_datetime(ss_dist.index, dayfirst=True)
+        #     if ss == '0.1':
+        #         Activation_dist = ss_dist
+        #     else:
+        #         Activation_dist = pd.merge(Activation_dist,ss_dist,left_index = True, right_index = True)
+        # gt_cols = [col for col in actdf.columns.to_numpy() if f'_gt' in col]
+        # gt_dist = actdf[gt_cols]
+        # gt_dist.columns = gt_dist.columns.str.replace(f"F_gt_", "")
+        # gt_dist = gt_dist.add_prefix(f'F_gt[', axis='index')
+        # gt_dist = gt_dist.add_suffix('nm]', axis='index')
+        # gt_dist = gt_dist.T
+        # gt_dist.index = pd.to_datetime(gt_dist.index, dayfirst=True)
+        # Activation_dist = pd.merge(Activation_dist,gt_dist,left_index = True, right_index = True)
+        out = r"C:\Users\bensy\Documents\Research\CCN_SMPS_processed_parameters.csv"#input("Enter filepath to export data as a csv, or press 'enter' to skip: ")
+        if out != '':
+            Data_out.to_csv(out)
+    else:
+        # Fract_curve(grtr_df, freq ='S', Kappa=kappa)
+        # Fact_curve(actdf, freq='S')
+        # kapdf = kapdf.drop(index='0.1')
+        # codf = codf.drop(index='0.1')
+        
+        cut_off_curve(codf, freq ='S')
+        kappa_curve(kapdf, freq ='S')
+        # Activation_dist.to_csv(r"C:\Users\bensy\Documents\Research\CCN_SMPS_activation_curves.csv")
 

@@ -148,7 +148,52 @@ def ccn_data(files, freq ='d', ss = [0.1,0.7], cortype =''):
     ccn.index.names = ['Date']
     return ccn,cols,ss_cols
 
-def comb_files(smps_files,ccn_files, freq = 'd', chem = 0, cortype = ''):
+def AQS_data(files,freq='d'):
+    '''
+    Takes in an AQS file and processes it
+    ----------
+
+    Parameters
+    ++++++++++
+    f : [list of str] Paths to Master file
+    freq : [str] Resample frequency for DataFrame
+
+    Returns
+    ++++++++++
+    master : [DataFrame] Master data file
+    spec : [list of str] Names of used columns from chemistry output
+    '''
+    AQS = pd.DataFrame()
+    for i in range(len(files)): #read in smps files and combine
+        f = files[i]
+        file =pd.read_csv(f) #read in smps file
+        file["Date(UTC)"] = pd.to_datetime(file["Date(UTC)"])
+        file=file.set_index("Date(UTC)") #Set index
+        if i == 0:
+            AQS = file
+        else:
+            AQS = pd.concat([AQS,file])
+    # AQS['Date(UTC)'] = pd.to_datetime(AQS.index)
+    specs = ['Org PM2.5 [ug/m3 ATP]','PM2.5 [ug/m3 ATP]','SO4 PM2.5 [ug/m3 ATP]', 'NO3 PM2.5 [ug/m3 ATP]','Org/total','SO4/total','NO3/total']
+    # AQS=master.set_index("Date(UTC)") 
+    AQS = AQS[specs]
+    AQS.columns = AQS.columns.str.replace(' PM2.5', '')
+    AQS.columns = AQS.columns.str.replace(' ATP]', '] AQS')
+    AQS.columns = AQS.columns.str.replace('Org', 'org')
+    AQS = AQS.resample(freq).mean()
+    AQS = AQS.dropna()
+    return AQS,AQS.columns.to_numpy()
+
+def cpc_data(f, freq = 'd'):
+    file =pd.read_csv(f, skiprows=1)
+    file=file.set_index('DateTimeUTC')
+    file.index = pd.to_datetime(file.index, format='mixed')
+    file = file.resample(freq).mean()
+    file.index.names = ['Date']
+    file.rename(columns={'N_N71': 'CPC N[cm-3]'}, inplace=True)
+    return file
+
+def comb_files(smps_files,ccn_files,cpc_file, freq = 'd', chem = 0, cortype = '', ss_vals = ['0.1','0.15','0.25','0.4','0.7']):
     '''
     Takes in a list of CCN and SMPS files and returns a combined dataframe with important columns 
     from both for plotting or further analysis
@@ -169,11 +214,19 @@ def comb_files(smps_files,ccn_files, freq = 'd', chem = 0, cortype = ''):
     '''
     ccn, ccn_cols,ss_cols = ccn_data(ccn_files,freq, cortype=cortype)
     smps, smps_cols = smps_data(smps_files,freq)
+    cpc = cpc_data(cpc_file, freq)
     data = pd.merge(ccn[ccn_cols],smps[smps_cols],left_index = True, right_index = True)
+    data = pd.merge(data,cpc,left_index = True, right_index = True)
+    for ss in ss_vals:
+        data[f'F_act_SMPS(ss={ss}%)'] = data[f'N(cm-3)_cor_setpt{ss}']/data[f'Total Concentration (#/cm³)']
+        data[f'F_act_CPC(ss={ss}%)'] = data[f'N(cm-3)_cor_setpt{ss}']/data[f'CPC N[cm-3]']
     print(chem)
     if isinstance(chem,str):
         acsm, spec = master_data(chem)
         data = pd.merge(data, acsm ,left_index = True, right_index = True)
+    if isinstance(chem,list):
+        aqs, spec = AQS_data(chem)
+        data = pd.merge(data, aqs ,left_index = True, right_index = True)
     return data,ss_cols,smps_cols
 
 def find_activation(data, smps_cols, ss_cols, ss_vals = ['0.1','0.15','0.4','0.7']):
@@ -200,35 +253,37 @@ def cov(x):
         return np.nan  # avoid divide-by-zero
     return x.std() / mean*100
 
-def find_deviation(data, ss_cols,const_room =0.10, thresh =0.1, const = 'GeoMean',Var= 'Org', ss_vals = ['0.1','0.15','0.7']):
+def find_deviation(data, ss_cols,const_room =0.10, thresh =0.01,org_thresh= 100,verbose =True, const = 'GeoMean',Var= 'Org', ss_vals = ['0.1','0.15','0.7'], star_size = 4):
     FA_cols= []
     for col in ss_cols:
         ss = col.split('cor_setpt')[-1] 
         if ss in ss_vals:
             Fact = f'Fact_at_{ss}'
+            # input(data[Fact])
             FA_cols.append(Fact)
             title = ['Y',' vs ','X']
-            y_label = 'F_act CoV[%]'
+            y_label = r'$F_{act}$'+f'[ss={ss}] CoV[%]'
             if const =='Org':
                 col = 'org/total'
-                title[0] = 'Fact CoV at avg Forg'
+                title[0] = r'$F_{act}$ CoV at avg. $F_{org}$'
             elif const =='SO4':
                 col = 'SO4/total'
-                title[0] = 'Fact CoV at avg Fso4'
+                title[0] = r'$F_{act}$ CoV at avg. $F_{SO4}$'
             elif const == 'GeoMean':
                 col = f'Geo. Mean (nm)'
-                title[0] = 'Fact CoV at avg Geo. Mean'
+                title[0] = r'$F_{act}$ CoV at avg Geo. Mean'
             if Var == 'Org':
                 var = 'org/total'
-                x_label = 'F_org[1]'
+                print(data[var])
+                x_label = r'$F_{org}$[1]'
                 title[-1] = 'Organic Fraction'
             elif Var == 'SO4':
                 var = 'SO4/total'
-                x_label = 'F_so4[1]'
+                x_label = r'$F_{SO4}$[1]'
                 title[-1] = 'Sulfate Fraction'
             elif Var == 'GeoMean':
                 var = f'Geo. Mean (nm)'
-                x_label= 'Geo Mean [nm]'
+                x_label= 'Geo. Mean [nm]'
                 title[-1] = 'Geometric Mean'
             med = data[col].median()
             mask = (data[col] - med).abs() <= (abs(med) * const_room)
@@ -240,14 +295,16 @@ def find_deviation(data, ss_cols,const_room =0.10, thresh =0.1, const = 'GeoMean
                         var: 'mean'})
             drop_indices = data[data[Fact]<thresh].index   
             data = data.drop(drop_indices)
+            drop_indices = data[data['org/total']>org_thresh].index
+            data = data.drop(drop_indices)
             print(result)
             slct ={}
             slct[Fact] = var
-            scat_call(result, slct, x_label=x_label ,y_label=y_label,title=''.join(title), verbose=True,single=True)
+            scat_call(result, slct, x_label=x_label ,y_label=y_label,title=''.join(title),markersize=star_size, verbose=verbose,single=True)
     return data, FA_cols
 
 
-def plot_gen(data, mode = 0,yvars = 'Fa',xvars = 'Dt',const = '',const_room =0.05,ss_vals = ['0.7'], lines ='',date = 0, group ='all', thresh = 0, cormode = False,showCor=False, singleLine=True):
+def plot_gen(data, mode = 0,yvars = 'Fa',xvars = 'Dt',const = '',const_room =0.05,ss_vals = ['0.7'], lines ='',date = 0, group ='all', thresh = 0, org_thresh= 100, cormode = False,showCor=False, singleLine=True):
     '''
     Takes in a dataframe of SMPS and CCN data and generates interactive plots based on 
     the chosen columns and mode.
@@ -317,7 +374,7 @@ def plot_gen(data, mode = 0,yvars = 'Fa',xvars = 'Dt',const = '',const_room =0.0
         O50 = sorted_array[N25:N75]
         O75 = sorted_array[N75:]
         split = {}
-        split['org/total'] = ['Bottom 25% of Org',O25], ['Top 25% of Org', O75]
+        split['org/total'] = [r'Bottom 25% of $F_{Org}$',O25],[r'Top 25% of $F_{Org}$', O75]
     elif lines == 'GeoMean':
         sorted_array = np.sort(data[f'Geo. Mean (nm)'].to_numpy())
         N25 = int(len(sorted_array) * 0.25) #lower 25% of GeoMean
@@ -330,7 +387,7 @@ def plot_gen(data, mode = 0,yvars = 'Fa',xvars = 'Dt',const = '',const_room =0.0
     # input(list(split.values()))
     '''Set Y values'''
     if yvars =='Fa': #if activation fraction values used for plotting
-        y_name = 'Fa [1]'
+        y_name = r'$F_{act}$[1]'
         title_list[0] = ('Activation Fraction')
         if len(ss_vals) > 1:
             choice = input(f'Which ss% value would you like to use? ({', '.join(ss_vals)}, or all) ')
@@ -344,7 +401,7 @@ def plot_gen(data, mode = 0,yvars = 'Fa',xvars = 'Dt',const = '',const_room =0.0
             y_cols.append(Fa)
     elif yvars =='Std_Fa': #if activation fraction standard deviation used for plotting
         y_name = 'Fa Dev[1]'
-        title_list[0] = ('Fact St.Dev.')
+        title_list[0] = (r'$F_{act}$ St.Dev.')
         if len(ss_vals) > 1:
             choice = input(f'Which ss% value would you like to use? ({', '.join(ss_vals)}, or all) ')
         else: choice = ss_vals[0]
@@ -358,6 +415,8 @@ def plot_gen(data, mode = 0,yvars = 'Fa',xvars = 'Dt',const = '',const_room =0.0
     for c in y_cols:
         drop_indices = data[data[c]<thresh].index   
         data = data.drop(drop_indices)
+    drop_indices = data[data['org/total']>org_thresh].index
+    data = data.drop(drop_indices)
     '''Set constants'''
     if const =='Org':
         #only keep values where org fraction is close to median value
@@ -383,19 +442,19 @@ def plot_gen(data, mode = 0,yvars = 'Fa',xvars = 'Dt',const = '',const_room =0.0
         else: choice = ss_vals[0]
         if choice == 'all':
             for ss in ss_vals:
-                Fa = f'Fact_at_{ss}'
+                Fa = r'$F_{act}$'+f'{ss}'
                 x_cols.append(Fa)
         else:
-            Fa = f'Fact_at_{choice}'
+            Fa = r'$F_{act}$'+f'{choice}'
             x_cols.append(Fa)
     elif xvars=='Org': #if organic fraction values used for plotting
-        x_name = 'Org [1]'
+        x_name = r'$F_{Org}$ [1]'
         title_list[-1] = ('Organic Fraction')
         org = f'org/total'
         for i in range(len(y_cols)):
             x_cols.append(org)
     elif xvars=='SO4': #if organic fraction values used for plotting
-        x_name = 'SO4 [1]'
+        x_name = r'$F_{SO4}$ [1]'
         title_list[-1] = ('Sulfate Fraction')
         sulf = f'SO4/total'
         for i in range(len(y_cols)):
@@ -415,6 +474,12 @@ def plot_gen(data, mode = 0,yvars = 'Fa',xvars = 'Dt',const = '',const_room =0.0
     elif xvars=='GeoMean': #if geometric mean values used for plotting
         x_name = 'Geo. Mean [nm]'
         title_list[-1] = ('Geometric Mean')
+        GM = f'Geo. Mean (nm)'
+        for i in range(len(y_cols)):
+            x_cols.append(GM)
+    elif xvars=='ss': #if geometric mean values used for plotting
+        x_name = 'ss[%]'
+        title_list[-1] = ('Super Saturation')
         GM = f'Geo. Mean (nm)'
         for i in range(len(y_cols)):
             x_cols.append(GM)
@@ -510,19 +575,19 @@ def plot_gen(data, mode = 0,yvars = 'Fa',xvars = 'Dt',const = '',const_room =0.0
 
 if __name__ == '__main__':
     bad_dates = [[pd.to_datetime('10/01/2025 00:00:00'),pd.to_datetime('12/15/2025 00:00:00')]]
-    smps = [r"C:\Users\bensy\Documents\Research\2024_SMPS_NumberSizeDist_1hr.csv",r"C:\Users\bensy\Documents\Research\SMPS_NumberSizeDist_2025_1hr.csv"]#list(input('Provide paths to SMPS file(s). Seperate multiples with a comma: ').replace('"','').split(','))
-    ccn = [r"C:\Users\bensy\Documents\Research\CCN_Processed_2024_1hr.csv",r"C:\Users\bensy\Documents\Research\CCN_Processed_2025_1hr.csv"]#list(input('Provide paths to CCN file(s). Seperate multiples with a comma: ').replace('"','').split(','))
+    cpc = r"C:\Users\bensy\Documents\Research\app_CPC.csv"
+    smps =[r"C:\Users\bensy\Documents\Research\2024_SMPS_NumberSizeDist_1hr.csv",r"C:\Users\bensy\Documents\Research\SMPS_NumberSizeDist_2025_1hr.csv",r"C:\Users\bensy\Documents\Research\2026_SMPS_NumberSizeDist_1hr.csv"]  #list(input('Provide paths to SMPS file(s). Seperate multiples with a comma: ').replace('"','').split(','))
+    ccn = [r"C:\Users\bensy\Documents\Research\CCN_Processed_2024_1hr.csv",r"C:\Users\bensy\Documents\Research\CCN_Processed_2025_1hr.csv",r"C:\Users\bensy\Documents\Research\CCN_Processed_2026_1hr.csv"]     #list(input('Provide paths to CCN file(s). Seperate multiples with a comma: ').replace('"','').split(','))
     master =  r"C:\Users\bensy\Downloads\MasterDataFile_ChemAOPsCCNSMPSMET_June2024-Oct2025.csv"
-    data,ss_cols,smps_cols = comb_files(smps,ccn, freq='d')#chem=master
+    AQS = [r"C:\Users\bensy\Documents\Research\AQS_Processed\AQS_avery_2024.csv",r"C:\Users\bensy\Documents\Research\AQS_Processed\AQS_avery_2025.csv"]
+    data,ss_cols,smps_cols = comb_files(smps,ccn, cpc,chem = master, freq='d')#chem=master
     mask = pd.Series(False, index=data.index)
     for date in bad_dates:
         mask |= (data.index >= date[0]) & (data.index <= date[-1])
     data = data[~mask]
     data, FA_cols = find_activation(data, smps_cols, ss_cols)
-    # data, FA_cols = find_deviation(data, ss_cols)
-    plot_gen(data,mode='scat',xvars='GeoMean', group='all',thresh=0.10, ss_vals=['0.7'],showCor=True,singleLine =True) # 
-    input(data)
+    # data, FA_cols = find_deviation(data, ss_cols, const="GeoMean", Var="Org",verbose = True,star_size=15)
+    plot_gen(data,mode='scat',xvars='GeoMean',lines='Org', group='all',thresh=0.13, ss_vals=['0.7'],showCor=True,singleLine =True, org_thresh =1.0) # 
     out = r"C:\Users\bensy\Documents\Research\CCN_activation_Fraction.csv"#input("Enter filepath to export data as a csv, or press 'enter' to skip: ")
     if out != '':
         data.to_csv(out)
-
