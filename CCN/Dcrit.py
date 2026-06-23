@@ -1,5 +1,5 @@
 """
-Date: 6/5/2026
+Date: 6/23/2026
 Author: Ben Sykes
 Purpose: Useful plots for calculating critical diameter and kappa values utilizing the CCN and SMPS
 """
@@ -7,17 +7,8 @@ Purpose: Useful plots for calculating critical diameter and kappa values utilizi
 """IMPORTS"""
 import numpy as np
 import pandas as pd 
-from scipy.stats import linregress, pearsonr 
 import matplotlib.pyplot as plt
-import matplotlib.dates as mdates
-from scipy.optimize import least_squares as LSfit
-from datetime import datetime 
 from CombineData import comb_files,smps_means
-from scipy.optimize import brentq
-import time
-import sys
-import re
-from scipy.interpolate import interp1d
 from scipy.special import erf
 pd.set_option('mode.chained_assignment', None)
 plt.rcParams['font.size'] = 18
@@ -302,23 +293,7 @@ if __name__ == '__main__':
     Data_out = pd.merge(Data_out,smps_mean,left_index = True, right_index = True,how='left')
     Data_out = pd.merge(Data_out,ccn_data,left_index = True, right_index = True,how='left')
     Data_out = pd.merge(Data_out,Fact,left_index = True, right_index = True,how='left')
-    out = r"C:\Users\bensy\Documents\Research\CCN_SMPS_processed_parameters.csv"#input("Enter filepath to export data as a csv, or press 'enter' to skip: ")
+    out = input("Enter filepath to export data as a csv, or press 'enter' to skip: ")
     if out != '' : Data_out.to_csv(out)
-    # plt.ion()
-    # fig, ax = plt.subplots()
-    # cdf = Data_out.resample('W').mean()
-    # normed =(cdf-cdf.min())/(cdf.max()-cdf.min())
-    # # input(normed.columns.to_numpy())
-    # normed = normed.dropna(how='any')
-    # ax.plot(normed['Fact(ss=0.7)'],label = 'Fact(ss=0.7)')
-    # ax.plot(normed['Kappa(ss=0.7)'],label = 'kappa(ss=0.7)')
-    # ax.plot(normed['Geo. Mean (nm)'],label = 'Geo.Mean D[nm]')
-    # ax.plot(normed['Total Concentration (#/cm³)'],label = 'Ntot[#]')
-    # # ax.plot(normed['Mean (nm)'],label = 'Mean D[nm]')
-    # ax.legend()
-    # ax.set_ylabel('Normalized Trends[1]')
-    # ax.set_xlabel('Date')
-    # ax.set_title('Trend analysis of CCN Data')
-    # input('Press enter to exit plot...')
-    # plt.ioff()
+    
     print('finished')
