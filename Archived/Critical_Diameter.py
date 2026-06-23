@@ -289,6 +289,7 @@ kappa_curve : Generates hygroscopicity curves
 Fact_curve : Activation fraction at diameter curves
 Fract_curve : Activation fraction and fraction above Dcrit
 +++======Generate Curves From the Data Sets======'''
+
 def cut_off_curve(data, ideal = 0,freq = 'M',plot =['scat']):
     '''
     Takes in a dataframe of SMPS and CCN data and generates interactive plots of the critical diameter
@@ -572,7 +573,7 @@ scat_plot : generates a scatter plot
 Similar scat plot functionality for the frac curves
 with more specificity
 +++======Interactive Plotting======'''
-def line_call(data, slct, y_label, x_label, title, freq = 'S', ss_vals = ['0.1','0.4','0.7']):
+def line_call(data, slct, y_label, x_label, title, freq = 'S', ss_vals = ['0.4','0.7']):
     '''
     Takes in a dataframe of and generates an interactive line plot based on 
     the selected columns.
@@ -935,7 +936,7 @@ if __name__ == '__main__':
     smps =[r"C:\Users\bensy\Documents\Research\2026_SMPS_NumberSizeDist_1hr.csv",r"C:\Users\bensy\Documents\Research\2024_SMPS_NumberSizeDist_1hr.csv",r"C:\Users\bensy\Documents\Research\SMPS_NumberSizeDist_2025_1hr.csv"]  #list(input('Provide paths to SMPS file(s). Seerate multiples with a comma: ').replace('"','').split(','))
     ccn = [r"C:\Users\bensy\Documents\Research\CCN_Processed_2026_1hr.csv",r"C:\Users\bensy\Documents\Research\CCN_Processed_2025_1hr.csv",r"C:\Users\bensy\Documents\Research\CCN_Processed_2024_1hr.csv"]  #r"C:\Users\bensy\Documents\Research\CCN_Processed_2024_1hr.csv"  #[r"C:\Users\bensy\Documents\Research\CCN_Processed_2025_1hr.csv"]#  #list(input('Provide paths to CCN file(s). Seperate multiples with a comma: ').replace('"','').split(','))
     master =  r"C:\Users\bensy\Downloads\MasterDataFile_ChemAOPsCCNSMPSMET_June2024-Oct2025.csv"
-    f = 'ME'
+    f = 'd'
     kappa =0.1
     kappa_compare = pd.read_csv(r"C:\Users\bensy\Documents\Research\CCN_hourly_AD_Kappa_SSset_2025_Version09112025.csv")
     kappa_compare=kappa_compare.set_index("HourlyDateTime")
@@ -947,11 +948,12 @@ if __name__ == '__main__':
     kappa_compare = kappa_compare[['Activation_Dp(ss=0.1)_compare','Kappa(ss=0.1)_compare']]
     kappa_compare = kappa_compare.resample(f).mean()
     dataout = r"C:\Users\bensy\Documents\Research\CCN_activation_diameter_test.csv"
-    data,ss_cols,diam_cols = comb_files(smps,ccn, freq=f,D50=True)
+    
+    data,ss_cols,diam_cols = comb_files(smps,ccn, freq=f,D50=False)
     smps_mean = smps_means(smps,freq = f)
     data = data.dropna(thresh=23)
     smps_data = data[diam_cols]
-    if False: 
+    if True: 
         Data_in = pd.read_csv(r'C:\Users\bensy\Documents\Research\CCN_SMPS_processed_parameters.csv', index_col=0)
         Data_in.index = pd.to_datetime(Data_in.index, format='mixed')
         Data_in = Data_in.dropna(how='any')
@@ -1041,7 +1043,7 @@ if __name__ == '__main__':
                     #     adf = adf.add_suffix(f'_{month}/{year}')
                 elif f in ['d','W','w']: 
                     df.columns = [f'D_cutoff_{day}/{month}/{year}',f'D_lower_{day}/{month}/{year}',f'D_upper_{day}/{month}/{year}']
-                    kapdf.columns = [f'Kappa_cutoff_{day}/{month}/{year}',f'Kappa_lower_{day}/{month}/{year}',f'Kappa_upper_{day}/{month}/{year}']
+                    kdf.columns = [f'Kappa_cutoff_{day}/{month}/{year}',f'Kappa_lower_{day}/{month}/{year}',f'Kappa_upper_{day}/{month}/{year}']
                     # if not(len(act_perc['F_gt']) ==0):
                     #     actdf = actdf.add_suffix(f'_{day}/{month}/{year}')
                 else:
