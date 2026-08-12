@@ -74,18 +74,6 @@ def line_plot(x,y,legs):
         else:
             legline.set_alpha(0.2)
         fig.canvas.draw()
-    
-    # def onselect(eclick, erelease):
-  
-    #     # Obtain (xmin, xmax, ymin, ymax) values
-    #     # for rectangle selector box using extent attribute.
-    #     x1, y1 = eclick.xdata, eclick.ydata
-    #     x2, y2 = erelease.xdata, erelease.ydata
-    #     print("Date_range: ", f'{y1}-{y2}')
-        
-    #     date_start = y1
-    #     date_end = y2
-
 
     fig.canvas.mpl_connect('pick_event', onpick)
     # rect_selector = RectangleSelector(ax, onselect, useblit=True, button=[1], minspanx=5, minspany=5, spancoords='data')
@@ -97,7 +85,7 @@ def line_plot(x,y,legs):
 
 file_in = r"C:\Users\bensy\Documents\Research\CCN\app_20260101.csv"
 # start_file = r"C:\Users\bensy\Documents\Research\CCN_Clean_2026_1min.csv"
-file_out = r"C:\Users\bensy\Documents\Research\CCN_Clean_2026_1min.csv"
+file_out = r"C:\Users\bensy\Documents\Research\CCN\CCN_Clean_2026_1min.csv"
 
 end_data, rename = readin(file_in)
 # print('end')
@@ -106,7 +94,11 @@ end_data, rename = readin(file_in)
 
 data,rename = readin(file_in)
 
-data = data.drop(index= '1970-01-01 00:00:00')
+try:
+    data = data.drop(index= '1970-01-01 00:00:00')
+except:
+    data = data
+
 data_clean,peaks = findZSpikesRoll(data, 'N(cm-3)',3,100)
 data['check'] = data['N(cm-3)'].to_numpy()
 data['check'].iloc[peaks] = np.nan
@@ -116,6 +108,10 @@ data.loc[pd.to_datetime('2026-01-09 17:00:00'): pd.to_datetime('2025-01-09 19:00
 data.loc[pd.to_datetime('2026-01-20 17:00:00'): pd.to_datetime('2025-01-20 19:05:00')] = np.nan
 data.loc[pd.to_datetime('2026-02-10 13:30:00'): pd.to_datetime('2025-02-10 14:00:00')] = np.nan
 data.loc[pd.to_datetime('2026-03-25 15:48:00'): pd.to_datetime('2025-03-25 17:55:00')] = np.nan
+data.loc[pd.to_datetime('2026-04-28 18:00:00'): pd.to_datetime('2025-05-02 12:00:00')] = np.nan
+data.loc[pd.to_datetime('2026-05-13 14:45:00'): pd.to_datetime('2025-05-13 16:30:00')] = np.nan
+data.loc[pd.to_datetime('2026-05-16 21:10:00'): pd.to_datetime('2025-05-21 16:30:00')] = np.nan
+data.loc[pd.to_datetime('2026-05-25 13:20:00'): pd.to_datetime('2026-05-25 14:00:00')] = np.nan
 
 date = data.index.to_numpy()
 y = [data['N(cm-3)'].to_numpy(),data['check'].to_numpy()]

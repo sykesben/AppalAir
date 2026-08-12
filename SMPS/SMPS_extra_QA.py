@@ -11,43 +11,35 @@ import pandas as pd
 from pathlib import Path
 
 
-def FindOutliersCOV(data, name, avg_mult = 0.4,size = 10):
+def FindOutliersRolling(data, name, name_out='', avg_mult = 0.4,size = 10):
     """
-    Takes in a dataframe of TSI EC 3082 and CPC 3750 SMPS data and the name of a collumn in that dataframe,
+    Takes in a dataframe of TSI 3938 SMPS data and the name of a column in that dataframe to process,
     identifies outliers within the named column of the data set via coefficient of variation measurements,
-    and returns a dataframe only containing the outliers
+    and returns the original dataframe with outliers marked
 
     ----------
-    Paramaters
+    Parameters
     ++++++++++
     data : [Pandas DataFrame] SMPS dataframe with metadata removed
     name : [str] name of the column used to id outliers
-    avg_mult : [float] value for deviation check
-    size : [float] size of window for rolling operation
+    name_out : [str] name of the flag column for outputting (default = '')
+    avg_mult : [float] value for deviation check (default = 0.4)
+    size : [float] size of window for rolling operation (default = 10)
 
     Returns
     ++++++++++
     Outliers : [Pandas DataFrame] outliers compiled into a data frame
     """
-
-    def VarCheck(x):
-        if not(x.any ==0):
-            avg = np.mean(x)
-            if abs(x[-1] -avg) > avg_mult*avg:
-                return x[-1]
-            else:
-                return np.nan
-        else:
-            return np.nan
-    def KeptCheck(x):
-        return x.isnull().sum() * 100 / len(x)
-
-    #itterating through each row in the provided data frame
-    Outliers = data[name].rolling(window=size).apply(VarCheck,raw =True)
-    perc_kept = Outliers.rolling(window='1h').apply(KeptCheck,raw =False)
-    data['outliers'] = Outliers
-    data['%kept']= perc_kept
-    return data   #return the outliers as a series the same size as data[name] with only outliers 
+    # generate a forward mean
+    forward_mean = (data[name].shift(-1)        # Shift all rows back by 1
+                    .rolling(window=size-1)     # Look forward at the next N-1 rows
+                    .mean()                     # Mean these next N-1 rows (mean automatically placed at the index of the last row)
+                    .shift(-(size-2)))          # Shift mean back from last index to first index
+    # Check if the value of each scan exceeds the mean value of the next N-1 scans by more than a certain amount
+    outliers = ((data[name] - forward_mean).abs() >avg_mult * forward_mean) 
+    if name_out == '': name_out = name + ' outliers'
+    data[name_out] = outliers
+    return data   #return dataframe with the outlier added in
 
 def RemoveOutliers(data, name, avg_mult = 0.4,size= 10):
     """
@@ -109,20 +101,3 @@ def CheckWindow(data, name,start= 0,avg_mult = 0.4,size =10):
     start_avg = data[name].iloc[start:start+size].mean()
     valid = np.abs(start_avg-total_avg) > avg_mult*total_avg
     return valid
-
-
-
-filepath = Path(input("\nEnter full path of file you would like to quality assure.\n")) 
-data = pd.read_csv(filepath)
-print(data.columns)
-
-col1 = 'Aerosol Humidity (%)' #Column names the program is looking at to quality assure
-#col2 = 'Geo. Mean (nm)'
-
-data = RemoveOutliers(data,col1)
-#data = RemoveOutliers(data,col2)
-
-ParentPath = filepath.parent
-name = input('\nEnter the desired name of your combined file and include the file type .csv:\n' \
-                     '(This will place the quality assured file in the same folder that held the original file)\n')
-data.to_csv(ParentPath / name)

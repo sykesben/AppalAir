@@ -69,7 +69,7 @@ def hist_call(data,slct,append=0):
         leg.append(f'{var_2}')
     hist_plot(y,leg, append=append)
 
-def scat_call(data, slct, x_label, y_label, title, split=0, short_legend =True, verbose = True,leg_dict = '', single = True, markersize =10,clrs = []):
+def scat_call(df, slct, x_label, y_label, title, split=0, short_legend =True, verbose = True,leg_dict ='', single = True,xtrp = '', markersize =10,clrs = []):
     '''
     Takes in a dataframe of SMPS and CCN data and generates an interactive scatter plot based on 
     the selected columns and mode.
@@ -77,7 +77,7 @@ def scat_call(data, slct, x_label, y_label, title, split=0, short_legend =True, 
 
     Parameters
     ++++++++++
-    data : [DataFrame] Combined CCN and SMPS data
+    df : [DataFrame] Combined CCN and SMPS data or list of Dataframes of length slct.keys()
     slct : [dict of str] relative CCN and SMPS column names for processing
     append : [any] value to append to end of plot title (default = 0[no appending])
     split : [dict or int] list of values to split on (default = 0[no split])
@@ -97,15 +97,26 @@ def scat_call(data, slct, x_label, y_label, title, split=0, short_legend =True, 
     b_all = []
     r_all = []
     if split == 0:
-        for var_1 in list(slct.keys()):
+        print(list(slct.keys()))
+        for i, var_1 in enumerate(list(slct.keys())):
+            if isinstance(df, pd.DataFrame):
+                data = df
+            else: 
+                data = df[i]
+            print(data.columns.to_numpy())
             var_2 = slct[var_1]
             y.append(data[var_1].to_numpy())
             x.append(data[var_2].to_numpy())
             mask = ~np.isnan(data[var_2].to_numpy()) & ~np.isnan(data[var_1].to_numpy())
             res = linregress(data[var_2].to_numpy()[mask],data[var_1].to_numpy()[mask])
             m,b,r = res.slope,res.intercept,res.rvalue**2
-            fit_y.append(m*data[var_2].to_numpy()+b)
-            fit_x.append(data[var_2].to_numpy())
+            y_fit = m*data[var_2].to_numpy()+b
+            x_fit = data[var_2].to_numpy()
+            if isinstance(xtrp,float): # extrapolate to given point
+                y_fit = np.append(y_fit,[m*xtrp+b])
+                x_fit = np.append(x_fit,[xtrp])
+            fit_y.append(y_fit)
+            fit_x.append(x_fit)
             rescor = pearsonr(data[var_1].to_numpy()[mask],data[var_2].to_numpy()[mask])
             cor,p = rescor.statistic, rescor.pvalue
             if single: 
@@ -149,12 +160,9 @@ def scat_call(data, slct, x_label, y_label, title, split=0, short_legend =True, 
                     v_list = list(var_1.split('act_at_'))
                     var_1 = str(v_list[0]) + r'$_{act}$[ss=' + str(v_list[-1]) +']'
                 if not short_legend:
-                    legend = f'{var_1} vs {var_2} at {append}'
+                    legend = f'{var_1} vs {var_2} at {append} | corr = {cor:.2f}'
                 else:
-                    legend = fr'{append}'
-                legend +=  f' | {m:.2e}x + {b:.2f}'
-                if verbose:
-                    legend += f' | corr = {cor:.2f}'
+                    legend = f'{append} | corr = {cor:.2f}'
                 leg.append(legend)
                 m_all.append(m)
                 b_all.append(b)
@@ -254,7 +262,7 @@ def monthly_box_call(data, slct, y_label, title, keys= ['1','2']):
             y.append(mdata1.to_numpy())
             dates.append(f'{d}')
             clr.append('rebeccapurple')
-        box_plot(y,dates, clr, y_label=y_label, title=title, legend = keys)
+        dub_box_plot(y,dates, clr, y_label=y_label, title=title, legend = keys)
     else:
         data.index = pd.to_datetime(data.index, format='mixed')
         months = data.index.month.to_numpy(dtype = str)
@@ -312,9 +320,9 @@ def hourly_box_call(data,slct, y_label,title):
         clr.append('mediumpurple')
     box_plot(y,dates, clr, y_label=y_label, title=title)
 
-def ss_box_call(data,slct, y_label,title):
+def var_box_call(data,slct,var, y_label,title):
     '''
-    Takes in a dataframe of ss-indexed data and generates an interactive box plot based on 
+    Takes in a dataframe and generates an interactive box plot based on 
     the selected columns.
     ----------
 
@@ -322,6 +330,7 @@ def ss_box_call(data,slct, y_label,title):
     ++++++++++
     data : [DataFrame] Combined CCN and SMPS data, or list of two combined data files
     slct : [str] column name for processing
+    var : [str] column name for x axis
     y_label : [str] labels for box plot
 
     Returns
@@ -329,21 +338,20 @@ def ss_box_call(data,slct, y_label,title):
     none 
     '''
     y= []
-    SS = []
+    dates = []
     clr =[]
-    ss = data.index.to_numpy(dtype = str)
-    data['ss'] = ss
-    data = data[[slct, 'ss']]
+
+    data = data[[slct, var]]
     data = data.dropna()
-    ssV = data['ss'].to_numpy()
+    vs = data[var].to_numpy()
     data = data[slct]
-    unq_ss = np.unique(ssV,sorted=True)
-    for s in unq_ss:
-        mdata = data[ssV == s]
-        y.append(mdata.to_numpy())
-        SS.append(f'{s}')
+    unq_vars = np.unique(vs,sorted=True)
+    for v in unq_vars:
+        vdata = data[vs == v]
+        y.append(vdata.to_numpy())
+        dates.append(f'{v}')
         clr.append('mediumpurple')
-    box_plot(y, SS, clr, y_label=y_label, title=title)
+    box_plot(y,dates, clr, y_label=y_label, title=title)
 
 def line_plot(x,y,legs, x_label, y_label, title):
     plt.ion()
@@ -380,11 +388,11 @@ def line_plot(x,y,legs, x_label, y_label, title):
     input('Press enter to exit plot...')
     plt.ioff()
 
-def scat_plot(x,y,fit_x,fit_y,legs, x_label, y_label, title,ms = 10, clrs = [],mrks =[]):
+def scat_plot(x,y,fit_x,fit_y,legs, x_label, y_label, title,ms = 10, clrs = [],mrks =[], right_ticks = True):
     if len(clrs) < len(x):
-        clrs = ["#2F459C","#EC7744","#C1A843","#8F368D","#7E3BAB","#4DB55A", "#3D9896", "#9C3131"]
+        clrs = ["#173ED9","#EE5310","#FFCC00","#9D0B9B","#8619CE","#12CE2B", "#D1520E", "#CD1616"]
     if len(mrks) < len(x):
-        mrks = ['.','X','*','2','^','P','s','v','D']#np.full((len(x),), '*')
+        mrks = ['.','*','2','s','^','P','X','v','D']#np.full((len(x),), '*')
     plt.ion()
     fig, ax = plt.subplots()
     lines = []
@@ -427,6 +435,8 @@ def scat_plot(x,y,fit_x,fit_y,legs, x_label, y_label, title,ms = 10, clrs = [],m
     ax.set_xlabel(x_label)
     # ax.set_ylim(bottom=0.0125)
     ax.set_title(title)
+    if right_ticks:
+        ax.tick_params(labelright=True,right=True)
     input('Press enter to exit plot...')
     plt.ioff()
 
@@ -482,6 +492,38 @@ def box_plot(y,legs, clrs, y_label, title, legend =''):
     for patch, color in zip(bplot['boxes'], clrs):
         patch.set_facecolor(color)
         patch.set_alpha(0.5)
+    if legend != '':
+        ax.legend([bplot['boxes'][i] for i in range(len(clrs))], legend)
+    ax.set_title(title)
+    ax.tick_params(axis='x', labelrotation=70)
+    ax.set_ylabel(y_label)
+    input('Press enter to exit plot...')
+    plt.ioff()
+
+def dub_box_plot(y,ticks, clrs, y_label, title, legend =''):
+    plt.ion()
+    fig, ax = plt.subplots()
+    flier = dict(marker='D', markerfacecolor='orangered', markersize=9,
+                  linestyle='none', markeredgecolor='maroon')
+    median= dict(color = 'maroon', linewidth = 3)
+    bplot = ax.boxplot(y,
+                flierprops=flier,
+                patch_artist=True,) # color plots)
+    # fill with colors
+    for patch, color in zip(bplot['boxes'], clrs):
+        patch.set_facecolor(color)
+        patch.set_alpha(0.5)
+    for med, color in zip(bplot['medians'], clrs):
+        darker ={'rebeccapurple':'indigo','lightcyan':'teal'}
+        med.set_color(darker[color])
+        med.set_linewidth(3)
+
+    # One tick per month
+    unique_ticks = ticks[::2]                 # every other label
+    tick_pos = np.arange(len(unique_ticks))*2 + 1.5
+
+    ax.set_xticks(tick_pos)
+    ax.set_xticklabels(unique_ticks)
     if legend != '':
         ax.legend([bplot['boxes'][i] for i in range(len(clrs))], legend)
     ax.set_title(title)

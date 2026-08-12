@@ -9,6 +9,7 @@ import numpy as np
 import pandas as pd 
 import matplotlib.pyplot as plt
 from CombineData import comb_files,smps_means
+from plotgen import monthly_box_call
 from scipy.special import erf
 pd.set_option('mode.chained_assignment', None)
 plt.rcParams['font.size'] = 18
@@ -116,7 +117,7 @@ The algorhythmic functions used for processing datasets:
 find_cutoff : calculates the critical diameter and hygroscopicity
 +++======Finding Calculation Functions======'''
 '''Sigmoid function fitting'''
-def activation(D50, D, sigma=32):
+def activation(D50, D, sigma=32, MAF =1):
     """
     Fits an activation curve for the PSD
     ----------
@@ -125,12 +126,13 @@ def activation(D50, D, sigma=32):
     D50 : [float] Critical diameter
     D : [float] Particle size distribution 
     sigma : [float] spread of activation thresholds (default = 32)
+    MAF : [float] mixing activation fraction (default = 1)
 
     Returns
     ++++++++++
     A : [float] activation curve 
     """
-    return 0.5 * (1 + erf((D-D50)/(np.sqrt(2)*sigma)))
+    return MAF/2 * (1 + erf((D-D50)/(np.sqrt(2)*sigma)))
 
 '''Find D50'''
 def find_Diameter(data, diams, ss_cols,sigma = 32):
@@ -164,13 +166,16 @@ def find_Diameter(data, diams, ss_cols,sigma = 32):
     # Generate a grf possible D50s 
     D50_grid = np.arange(20, 300, 0.5)
     # Using the possible D50s calculate a grid from the fitted sigmoid function
-    A  = activation(D50_grid[None,:],dp[:,None],sigma) # activation grid
-    dist = N.values # SMSP values (dt) x (dD) 
-    # Using the distribution and activation grid and Dlog(dp) values calculate and estimated CCN distribution grid 
-    N_CCN_pred = (dist[:,:,None]*A[None,:,:]*dlogdp[None,:,None]).sum(axis=1)
-    # itterate through each ss set point to pull out N_CCN(ss)
     for col in ss_cols:
         ss = col.split('cor_setpt')[-1] 
+        if ss == '0.1': 
+            A  = activation(D50_grid[None,:],dp[:,None],sigma) # activation grid
+        else:
+            A  = activation(D50_grid[None,:],dp[:,None],sigma, MAF = 0.96) # activation grid
+        dist = N.values # SMSP values (dt) x (dD) 
+        # Using the distribution and activation grid and Dlog(dp) values calculate and estimated CCN distribution grid 
+        N_CCN_pred = (dist[:,:,None]*A[None,:,:]*dlogdp[None,:,None]).sum(axis=1)
+        # itterate through each ss set point to pull out N_CCN(ss)
         N_CCN_obs = data[col].to_numpy()  # N_CCN(ss) (dt) x (dD) 
         # find the D50 values that minimizes the deviation between the Predicted and Observed CCN values
         D50_idx = np.argmin(np.abs(N_CCN_pred- N_CCN_obs[:,None]),axis=1) 
@@ -183,11 +188,14 @@ def find_Diameter(data, diams, ss_cols,sigma = 32):
     return Dcrits, kappas
 
 '''Find Fact'''
-def find_Activation(data, ss_cols):
+def find_Activation(data, ss_cols, fit =False):
     Fact_dict ={}
     for col in ss_cols:
         ss = col.split('cor_setpt')[-1] 
-        Fact_dict[f"Fact(ss={ss})"] = data[col].to_numpy()/data['Total Concentration (#/cm³)'].to_numpy()
+        if fit:
+            Fact_dict[f"Fact(ss={ss})"] = data[col].to_numpy()/data['Total Concentration Fit(#/cm³)'].to_numpy()
+        else:
+            Fact_dict[f"Fact(ss={ss})"] = data[col].to_numpy()/data['Total Concentration (#/cm³)'].to_numpy()
     return Fact_dict
 
 """Calls in the functions if this script is run"""
@@ -202,10 +210,13 @@ if __name__ == '__main__':
     # Known dates to remove from processing
     bad_dates = [[pd.to_datetime('06/01/2024 00:00:00'),pd.to_datetime('07/30/2024 00:00:00')],[pd.to_datetime('10/20/2024 00:00:00'),pd.to_datetime('10/27/2024 00:00:00')],
                  [pd.to_datetime('10/01/2025 00:00:00'),pd.to_datetime('12/31/2025 00:00:00')],[pd.to_datetime('07/01/2025 00:00:00'),pd.to_datetime('07/24/2025 00:00:00')],[pd.to_datetime('08/06/2025 00:00:00'),pd.to_datetime('08/14/2025 00:00:00')],
-                 [pd.to_datetime('01/01/2026 00:00:00'),pd.to_datetime('01/09/2026 18:00:00')]]
+                 [pd.to_datetime('01/01/2026 00:00:00'),pd.to_datetime('01/09/2026 18:00:00')],[pd.to_datetime('04/17/2026 00:00:00'),pd.to_datetime('06/18/2025 16:00:00')]]
     # Files to combine
-    smps =[r"C:\Users\bensy\Documents\Research\2026_SMPS_NumberSizeDist_1hr.csv",r"C:\Users\bensy\Documents\Research\2024_SMPS_NumberSizeDist_1hr.csv",r"C:\Users\bensy\Documents\Research\SMPS_NumberSizeDist_2025_1hr.csv"]  #list(input('Provide paths to SMPS file(s). Seerate multiples with a comma: ').replace('"','').split(','))
+    smps =[r"C:\Users\bensy\Documents\Research\SMPS_2026\2026_SMPS_NumberSizeDist_1hr_clean.csv",r"C:\Users\bensy\Documents\Research\SMPS_2024\2024_SMPS_NumberSizeDist_1hr_clean.csv",r"C:\Users\bensy\Documents\Research\SMPS_2025\2025_SMPS_NumberSizeDist_1hr_clean.csv"]  #list(input('Provide paths to SMPS file(s). Seerate multiples with a comma: ').replace('"','').split(','))
     ccn = [r"C:\Users\bensy\Documents\Research\CCN\Processed\CCN_lvl2_2026_1hr.csv",r"C:\Users\bensy\Documents\Research\CCN\Processed\CCN_lvl2_2025_1hr.csv",r"C:\Users\bensy\Documents\Research\CCN\Processed\CCN_lvl2_2024_1hr.csv"]   #r"C:\Users\bensy\Documents\Research\CCN_Processed_2024_1hr.csv"  #[r"C:\Users\bensy\Documents\Research\CCN_Processed_2025_1hr.csv"]#  #list(input('Provide paths to CCN file(s). Seperate multiples with a comma: ').replace('"','').split(','))
+    # Excess files
+    vol =[r"C:\Users\bensy\Documents\Research\SMPS_2026\2026_SMPS_VolumeSizeDist_1hr_clean.csv",r"C:\Users\bensy\Documents\Research\SMPS_2024\2024_SMPS_VolumeSizeDist_1hr_clean.csv",r"C:\Users\bensy\Documents\Research\SMPS_2025\2025_SMPS_VolumeSizeDist_1hr_clean.csv"]
+    AE33 = [r"C:\Users\bensy\Documents\Research\AE33_Data\Aethelometer_Corrected_1hr_STP_2024.csv",r"C:\Users\bensy\Documents\Research\AE33_Data\Aethelometer_Corrected_1hr_STP_2025.csv",r"C:\Users\bensy\Documents\Research\AE33_Data\Aethelometer_Corrected_1hr_STP_2026.csv"]
     f = 'h' # set frequency
     sgm = 16 # 16 seems to minimize noise of data, but between 16-32 seems to work well
 
@@ -216,8 +227,9 @@ if __name__ == '__main__':
      - Drop bad data 
     +++2=======Read In=======2'''
     # Combined files and clean
-    data,ss_cols,diams = comb_files(smps,ccn,freq=f)
-    smps_mean = smps_means(smps,freq = f) # read in SMPS secondary data
+    # maf_calc = 
+    data,ss_cols,diams = comb_files(smps,ccn,freq=f)#,smps_fit='right')
+    smps_mean = smps_means(smps,freq = f,fit=True) # read in SMPS secondary data
     data = pd.merge(data,smps_mean,left_index = True, right_index = True, how='left')
     mask = pd.Series(False, index=data.index) # drop bad dates
     for date in bad_dates:
@@ -265,8 +277,8 @@ if __name__ == '__main__':
     Dc = Dc.add_prefix('Dcrit(ss=', axis='columns')
     Dc = Dc.add_suffix(')', axis='columns')
     # remove data with physically impossible values 
-    Dc[Dc < 10] = np.nan
-    Dc[Dc > 300] = np.nan
+    Dc[Dc <= 20] = np.nan
+    Dc[Dc >= 300] = np.nan
     DC_STD = Dc.std()
     # Hygroscopicity dataframe
     K = pd.DataFrame(Kappas)
@@ -275,13 +287,11 @@ if __name__ == '__main__':
     K.index = pd.to_datetime(K.index, format='mixed')
     K = K.add_prefix('Kappa(ss=', axis='columns')
     K = K.add_suffix(')', axis='columns')
-    K[K>1.5] = np.nan
     Dc[K>1.5] = np.nan
-    # remove the worst spikes in the data 
-    K['Kappa(ss=0.7)'][K['Kappa(ss=0.7)']>0.4] = np.nan
-    K['Kappa(ss=0.4)'][K['Kappa(ss=0.4)']>0.6] = np.nan
-    K['Kappa(ss=0.25)'][K['Kappa(ss=0.25)']>0.6] = np.nan
-    K['Kappa(ss=0.15)'][K['Kappa(ss=0.15)']>0.6] = np.nan
+    K[K>1.5] = np.nan
+    # # remove the worst spikes in the data 
+    K[K>0.8] = np.nan
+    K[K<0.007] = np.nan
     # generate the activation Fraction Dataframe
     Fact = pd.DataFrame(Fact_d)
     Fact['Datetime'] = dates
@@ -289,11 +299,31 @@ if __name__ == '__main__':
     Fact.index = pd.to_datetime(Fact.index, format='mixed')
     # Generate Data Out
     Data_out = pd.merge(Dc,K,left_index = True, right_index = True) 
+    Data_out = Data_out.dropna(how='all')
     ccn_data = data[['N(cm-3)_cor_setpt0.1','N(cm-3)_cor_setpt0.15','N(cm-3)_cor_setpt0.25',"N(cm-3)_cor_setpt0.4",'N(cm-3)_cor_setpt0.7']].copy()
     Data_out = pd.merge(Data_out,smps_mean,left_index = True, right_index = True,how='left')
     Data_out = pd.merge(Data_out,ccn_data,left_index = True, right_index = True,how='left')
     Data_out = pd.merge(Data_out,Fact,left_index = True, right_index = True,how='left')
-    out = input("Enter filepath to export data as a csv, or press 'enter' to skip: ")
-    if out != '' : Data_out.to_csv(out)
+    bimode = Data_out[Data_out['N_Peaks']>1]
+    acc= pd.read_csv(r"C:\Users\bensy\Documents\Research\CCN_SMPS_fit_parameters.csv",index_col=0)
+    acc.index = pd.to_datetime(acc.index, format='mixed')
+    biacc= acc[acc['N_Peaks']>1]
+    # out = r"C:\Users\bensy\Documents\Research\CCN_SMPS_fit_parameters.csv"#input("Enter filepath to export data as a csv, or press 'enter' to skip: ")
+    # if out != '' : Data_out.to_csv(out)
+    monthly_box_call(Data_out, 'Kappa(ss=0.25)',y_label=r'K$_{ccn}$(ss=0.25)',title = r'K$_{CCN}$(ss=0.25)')
+    monthly_box_call([Data_out,bimode], 'Fact(ss=0.7)',y_label=r'F$_{Act}$',title = r'F$_{Act}$(ss=0.7)',keys=['All data','Bimodal PSD'])
+    monthly_box_call([acc,biacc], 'Fact(ss=0.7)',y_label=r'F$_{Act}$',title = r'F$_{Act}$(ss=0.7) Ignoring Aitkin Peaks',keys=['All Data','Bimodal PSD'])
     
+    plt.ion()
+    fig, ax = plt.subplots()
+    R2= Data_out['Geo. Mean (nm)'].to_numpy()
+    k= Data_out['Kappa(ss=0.15)']
+    ax.plot(R2,k)
+    # cdf = Data_out.resample('MS').mean()
+    # normed =(cdf-cdf.min())/(cdf.max()-cdf.min())
+    ax.set_ylabel('K(ss=0.15)')
+    ax.set_xlabel('R2 of logNorm Fit')
+    ax.set_title('Trend analysis of CCN Data')
+    input('Press enter to exit plot...')
+    plt.ioff()
     print('finished')

@@ -10,6 +10,7 @@ import pandas as pd
 pd.set_option('mode.chained_assignment', None)
 from scipy.stats import linregress, pearsonr 
 import matplotlib.pyplot as plt
+from matplotlib.patches import Patch
 from scipy.optimize import least_squares as LSfit
 
 def line_call(data, slct, append=0):
@@ -142,13 +143,20 @@ def box_call(data, slct, append=0):
     for AQS in list(slct.keys()):
         ACSM = slct[AQS]
         for c in [c for c in columns_tot if AQS in c]:
+            loc = list(c.split('AQS '))[-1]
+            choice = [b for b in columns_tot if (loc in b)&('ctgry' in b)]
+            cat = str(list(data[choice].to_numpy())[0][0])
+            if cat =='Rural':
+                color = 'skyblue'
+            elif cat == "Urban":
+                color = 'darkseagreen'
             y.append(data[c].to_numpy())
             if '/total' in c:
                 leg.append(f'{c.replace('/total AQS', '\n')}')
-                clr.append('skyblue')
+                clr.append(color)
             else:
                 leg.append(f'{c.replace(' [ug/m3] AQS', '\n')}')
-                clr.append('skyblue')
+                clr.append(color)
         y.append(data[ACSM].to_numpy())
         if 'total' in ACSM: 
             leg.append(f'{ACSM.replace('/total ', '')}')
@@ -220,6 +228,10 @@ def box_plot(y,legs, clrs, append = 0):
     for patch, color in zip(bplot['boxes'], clrs):
         patch.set_facecolor(color)
         patch.set_alpha(0.5)
+    labels = ['ACSM', "Urban AQS", 'Rural AQS']
+    colors = ['mediumpurple', 'darkseagreen', 'skyblue']
+    legend_handles = [Patch(facecolor=c, edgecolor='black', label=l) for c, l in zip(colors, labels)]
+    ax.legend(handles=legend_handles)
     if append == 0: 
         ax.set_title(f"Comparison of AQS and ACSM data")
     else: 
@@ -257,7 +269,7 @@ def line_plot(x,y,legs, append = 0):
         fig.canvas.draw()
 
     fig.canvas.mpl_connect('pick_event', onpick)
-    ax.set_ylabel('X [µg/m^3]')
+    ax.set_ylabel(r'X[$ug_{x}/ug_{PM2.5}$]')
     ax.set_xlabel('Date')
     if append == 0:
         ax.set_title(f"Comparison of AQS and ACSM data")

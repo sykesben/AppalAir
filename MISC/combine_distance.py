@@ -16,7 +16,7 @@ CSV_DIR = r'C:\Users\bensy\Documents\Research\AQS_CSV'
 LAT0 = 36.21
 LON0 = -81.69
 MAX_DIST_KM = 350.0
-YEAR = 2024
+YEAR = 2026
 
 # =============================
 # Haversine distance function

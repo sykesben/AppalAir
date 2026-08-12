@@ -12,9 +12,93 @@ from scipy.stats import linregress, pearsonr
 import matplotlib.pyplot as plt
 from scipy.optimize import least_squares as LSfit
 from AQS_ACSM_plot import line_call, hist_call,scat_call, box_call
+from plotgen import monthly_box_call, hourly_box_call,line_plot, scat_call
+def county_conv(cnty):
+    '''Provided a county name -> return whether that county is rural or Urban
+    ----------
+    Paramaters
+    ++++++++++
+    cnty : [str] county name as key for dictionary 
 
+    Returns
+    ++++++++++
+    *val : [str] dictionary value associated with the passed key {"Urban" or "Rural"}
+    '''
+    conv_dict = {"Alamance county,North Carolina": "Urban",
+            "Albemarle county,Virginia": "Urban",
+            "Amherst county,Virginia": "Rural",
+            "Avery county,North Carolina": "Rural",
+            "Bell county,Kentucky": "Rural",
+            "Blount county,Tennessee": "Urban",
+            "Boyd county,Kentucky": "Rural",
+            "Bristol City county,Virginia": "Rural",
+            "Buchanan county,Virginia": "Rural",
+            "Buncombe county,North Carolina": "Urban",
+            "Cabell county,West Virginia": "Urban",
+            "Carter county,Kentucky": "Rural",
+            "Caswell county,North Carolina": "Rural",
+            "Catawba county,North Carolina": "Urban",
+            "Chatham county,North Carolina": "Urban",
+            "Chesterfield county,South Carolina": "Rural",
+            "Clarke county,Georgia": "Rural",
+            "Cumberland county,North Carolina": "Urban",
+            "Davidson county,North Carolina": "Rural",
+            "Durham county,North Carolina": "Urban",
+            "Edgefield county,South Carolina": "Rural",
+            "Fayette county,Kentucky": "Urban",
+            "Florence county,South Carolina": "Urban",
+            "Forsyth county,North Carolina": "Urban",
+            "Gaston county,North Carolina": "Urban",
+            "Greenville county,South Carolina": "Urban",
+            "Guilford county,North Carolina": "Urban",
+            "Gwinnett county,Georgia": "Urban",
+            "Hall county,Georgia": "Urban",
+            "Hamilton county,Tennessee": "Urban",
+            "Haywood county,North Carolina": "Rural",
+            "Jackson county,North Carolina": "Rural",
+            "Jessamine county,Kentucky": "Urban",
+            "Johnston county,North Carolina": "Urban",
+            "Kanawha county,West Virginia": "Urban",
+            "Knox county,Tennessee": "Urban",
+            "Lee county,North Carolina": "Urban",
+            "Lexington county,South Carolina": "Urban",
+            "Loudon county,Tennessee": "Rural",
+            "Lynchburg City county,Virginia": "Rural",
+            "Madison county,Kentucky": "Rural",
+            "McDowell county,North Carolina": "Rural",
+            "McMinn county,Tennessee": "Rural",
+            "Mecklenburg county,North Carolina": "Urban",
+            "Mitchell county,North Carolina": "Rural",
+            "Montgomery county,North Carolina": "Rural",
+            "Montgomery county,Virginia": "Rural",
+            "Murray county,Georgia": "Rural",
+            "Oconee county,South Carolina": "Rural",
+            "Perry county,Kentucky": "Rural",
+            "Pike county,Kentucky": "Rural",
+            "Pulaski county,Kentucky": "Rural",
+            "Putnam county,Tennessee": "Rural",
+            "Raleigh county,West Virginia": "Urban",
+            "Richland county,South Carolina": "Urban",
+            "Richmond county,Georgia": "Urban",
+            "Roane county,Tennessee": "Rural",
+            "Roanoke City county,Virginia": "Urban",
+            "Roanoke county,Virginia": "Rural",
+            "Robeson county,North Carolina": "Rural",
+            "Rockbridge county,Virginia": "Rural",
+            "Rowan county,North Carolina": "Rural",
+            "Russell county,Kentucky": "Rural",
+            "Salem City county,Virginia": "Rural",
+            "Spartanburg county,South Carolina": "Urban",
+            "Sullivan county,Tennessee": "Urban",
+            "Swain county,North Carolina": "Rural",
+            "Wake county,North Carolina": "Urban",
+            "Watauga county,North Carolina": "Rural",
+            "Wayne county,North Carolina": "Urban",
+            "Wood county,West Virginia": "Rural",
+            "York county,South Carolina": "Urban"}
+    return conv_dict[cnty]
 
-def AQS_CSVs_for_Reindexing(files,freq='W'):
+def AQS_CSVs_for_Reindexing(files,freq='d'):
     aqs = pd.DataFrame()
     for i in range(len(files)): #read in AQS files and combine
         f = files[i]
@@ -32,6 +116,7 @@ def AQS_CSVs_for_Reindexing(files,freq='W'):
     for loc in locs:
         aqs_locs = aqs[aqs['Location']== loc]
         aqs_locs = aqs_locs[specs]
+        aqs_locs['ctgry'] = county_conv(loc)
         state_dict = {'North Carolina': 'NC',
                       'Georgia': 'GA',
                       'Kentucky': 'KY',
@@ -44,13 +129,14 @@ def AQS_CSVs_for_Reindexing(files,freq='W'):
         name[-1] = state_dict[name[-1]]
         loc = '\n'.join(name)
         aqs_locs = aqs_locs.add_suffix(f' {loc}')
-        if loc == locs[0]:
+        if AQS_tot.empty:
             AQS_tot = aqs_locs
         else: 
-            AQS_tot = pd.concat([AQS_tot,aqs_locs],axis=1)
+            AQS_tot =pd.merge(AQS_tot, aqs_locs, left_index=True, right_index=True)
     AQS_tot.columns = AQS_tot.columns.str.replace('/total', '/total AQS')
-    AQS_tot = AQS_tot.resample(freq).apply(np.nanmean)
+    AQS_tot = AQS_tot.resample(freq).agg({cata: 'first' for cata in AQS_tot.select_dtypes('object').columns} | {col: 'mean'for col in AQS_tot.select_dtypes('number').columns})
     AQS_tot = AQS_tot.dropna(how = 'all')
+    choice = [b for b in AQS_tot.columns.to_numpy() if ('ctgry' in b)]
     return AQS_tot,specs
 
 def PM25_data(files,freq='W'):
@@ -59,15 +145,18 @@ def PM25_data(files,freq='W'):
         f = files[i]
         file =pd.read_csv(f) #read in AQS file
         file=file.set_index("Date(UTC)") #Set index
+        file.index = pd.to_datetime(file.index)
+        file = file.select_dtypes(include=np.number)
+        file = file.resample(freq).mean()
         if i == 0:
             aqs = file
         else:
             aqs = pd.concat([aqs,file])
     aqs.index = pd.to_datetime(aqs.index)
-    specs = ['PM2.5 [ug/m3 STP]']
+    specs = ['PM2.5 [ug/m3 ATP]']
     aqs = aqs[specs]
-    aqs.columns = aqs.columns.str.replace('[ug/m3 STP]', '[ug/m3] AQS')
-    aqs = aqs.resample(freq).apply(np.nanmean)
+
+    aqs.columns = aqs.columns.str.replace('[ug/m3 ATP]', '[ug/m3]')
     aqs = aqs.dropna()
     return aqs,specs
 
@@ -87,7 +176,7 @@ def master_data(f,freq='W'):
     master = master.dropna()
     return master,specs
 
-def plot_gen(data, mode = 0,vars = ['spec'], date = 0, group ='all'):
+def plot_gen(data, mode = 0,vars = ['spec'], date = 0, group ='all', filter =''):
     '''
     Takes in a dataframe of AQS and ACSM data and generates interactive plots based on 
     the chosen columns and mode.
@@ -122,7 +211,9 @@ def plot_gen(data, mode = 0,vars = ['spec'], date = 0, group ='all'):
     data['season'] = [seasons(n) for n in data.index.month.to_numpy()]
     slct = {}
     cols = data.columns.to_numpy()
+    filt_cols = [c for c in cols if (filter in c)|('ACSM' in c)]
     AQS_cols =[]
+    data = data[filt_cols]
     if date != 0: #if date is passed, split the data using the passed date range
         if isinstance(date, list):
             if len(date) > 1:
@@ -245,17 +336,20 @@ def plot_gen(data, mode = 0,vars = ['spec'], date = 0, group ='all'):
                     append=f"{season} {year}"
                     box_call(Sdata,slct,append)
 
-f = [r"C:\Users\bensy\Documents\Research\AQS_CSVs_for_Reindexing\AQS_combined_speciated_2024.csv",r"C:\Users\bensy\Documents\Research\AQS_CSVs_for_Reindexing\AQS_combined_Speciated_2025.csv"]
-aqs,specs = AQS_CSVs_for_Reindexing(f)
-f2 = [r"C:\Users\bensy\Documents\Research\AQS_CSVs_for_Reindexing\AQS_combined_PM25_2024.csv",r"C:\Users\bensy\Documents\Research\AQS_CSVs_for_Reindexing\AQS_combined_PM25_2025.csv"]
+# f = [r"C:\Users\bensy\Documents\Research\AQS_Processed\AQS_combined_speciated_2024.csv",r"C:\Users\bensy\Documents\Research\AQS_Processed\AQS_combined_Speciated_2025.csv"]
+# aqs,specs = AQS_CSVs_for_Reindexing(f)
+f2 = [r"C:\Users\bensy\Documents\Research\AQS_Processed\AQS_combined_PM25_2024.csv",
+      r"C:\Users\bensy\Documents\Research\AQS_Processed\AQS_combined_PM25_2025.csv",
+      r"C:\Users\bensy\Documents\Research\AQS_Processed\AQS_combined_PM25_2026.csv"]
 pm25,specs = PM25_data(f2)
-f3 = r"C:\Users\bensy\Downloads\MasterDataFile_ChemAOPsCCNSMPSMET_June2024-Oct2025.csv"
-master, specs = master_data(f3)
-data = pd.merge(aqs,master,left_index = True, right_index = True)
-data = pd.merge(data,pm25,left_index = True, right_index = True)
-data = data.dropna(axis =1, how = 'all')
-data = data.ffill().bfill()
+# monthly_box_call(pm25,'PM2.5 [ug/m3]',y_label=r'Mass[ug/cm3]',title = 'Monthly AQS Aerosol Mass')
+# f3 = r"C:\Users\bensy\Downloads\MasterDataFile_ChemAOPsCCNSMPSMET_June2024-Oct2025.csv"
+# master, specs = master_data(f3)
+# data = pd.merge(aqs,master,left_index = True, right_index = True, how = 'left')
+# data = pd.merge(data,pm25,left_index = True, right_index = True)
+# data = data.dropna(axis =1, how = 'all')
+# data = data.ffill().bfill()
 # data = data.fillna(0) 
 # input(data)
-data.to_csv(expanduser("~/Documents/Research/Chemistry_comparison_daily.csv"))
-plot_gen(data,mode ='box',vars=['spec'])
+# data.to_csv(expanduser("~/Documents/Research/Chemistry_comparison_daily.csv"))
+# plot_gen(data,mode ='line',vars=['spec'], filter = 'Avery')

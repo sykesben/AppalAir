@@ -84,7 +84,7 @@ def chem_scat_call(data,comp,chem ='org',append=0):
     chem_scat_plot(x,y,fit_x, fit_y,leg,append=append)
     return m_all,b_all,r_all
 
-def line_call(data, slct, append=0):
+def line_call(data, slct, title = 0,val = 0, append=0):
     '''
     Takes in a dataframe of SMPS and CCN data and generates an interactive line plot based on 
     the selected columns.
@@ -104,13 +104,22 @@ def line_call(data, slct, append=0):
     y = []
     leg = []
     for ccn_c in list(slct.keys()):
-        smps_c = slct[ccn_c]
-        y.append(data[ccn_c])
-        leg.append(ccn_c)
-        if smps_c != 0:
+        out = slct[ccn_c]
+        try:
+            smps_c, cpc_c = out
             y.append(data[smps_c])
             leg.append(smps_c)
-    line_plot(date,y,leg,append=append)
+            y.append(data[cpc_c])
+            leg.append(cpc_c)
+        except:
+            smps_c = out
+            if smps_c != 0:
+                y.append(data[smps_c])
+                leg.append(smps_c)
+        y.append(data[ccn_c])
+        leg.append(ccn_c)
+        
+    line_plot(date,y,leg,title = title, val =val, append=append)
 
 def cor_line_call(data, slct, append=0):
     '''
@@ -366,7 +375,7 @@ def cor_box_call(data, slct, append=0):
         clr.append('mediumpurple')
     box_plot(y,leg, clr, append=append)
 
-def line_plot(x,y,legs, append = 0):
+def line_plot(x,y,legs, title = 0,val = 0, append = 0):
     plt.ion()
     fig, ax = plt.subplots()
     lines = []
@@ -395,12 +404,16 @@ def line_plot(x,y,legs, append = 0):
         fig.canvas.draw()
 
     fig.canvas.mpl_connect('pick_event', onpick)
-    ax.set_ylabel('N [#/cm^3]')
+    if val == 0:
+        val = 'N [#/cm^3]'
+    ax.set_ylabel(f'{val}')
     ax.set_xlabel('Date')
+    if title ==0:
+        title = f"Comparison of CCN and SMPS data"
     if append == 0:
-        ax.set_title(f"Comparison of CCN and SMPS data")
+        ax.set_title(f"{title}")
     else:
-        ax.set_title(f"Comparison of CCN and SMPS data for {append}")
+        ax.set_title(f"{title} for {append}")
     input('Press enter to exit plot...')
     plt.ioff()
 

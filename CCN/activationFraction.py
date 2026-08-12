@@ -41,6 +41,28 @@ def master_data(f,freq='d'):
     master = master.dropna()
     return master,master.columns.to_numpy()
 
+def acsm_data(f,freq = 'd'):
+    '''
+    Takes in the ACSM file and specifically cuts out the AQS data
+    ----------
+
+    Parameters
+    ++++++++++
+    f : [list of str] Paths to Master file
+    freq : [str] Resample frequency for DataFrame
+
+    Returns
+    ++++++++++
+    master : [DataFrame] ACSM data file
+    spec : [list of str] Names of used columns from chemistry output
+    '''
+    chem=pd.read_csv(f) #read in AQS filet index
+    chem['Datetime(UTC)'] = pd.to_datetime(chem['Datetime(UTC)']) 
+    chem=chem.set_index("Datetime(UTC)")
+    chem = chem.resample(freq).mean()
+    chem = chem.dropna()
+    return chem,chem.columns.to_numpy()
+
 def smps_data(files,freq='d',nm = [large_nm]):
     '''
     Takes in a list of smps files and filters out the particle size concentration depending
@@ -63,7 +85,10 @@ def smps_data(files,freq='d',nm = [large_nm]):
     for i in range(len(files)): #read in smps files and combine
         f = files[i]
         file =pd.read_csv(f) #read in smps file
-        file=file.set_index("DateTime Sample Start") #Set index
+        try:
+            file=file.set_index('Datetime(UTC)') #Set index
+        except:
+            file=file.set_index("DateTime Sample Start") #Set index
         if i == 0:
             smps= file
         else:
@@ -222,12 +247,23 @@ def comb_files(smps_files,ccn_files,cpc_file, freq = 'd', chem = 0, cortype = ''
         data[f'F_act_CPC(ss={ss}%)'] = data[f'N(cm-3)_cor_setpt{ss}']/data[f'CPC N[cm-3]']
     print(chem)
     if isinstance(chem,str):
-        acsm, spec = master_data(chem)
+        acsm, spec = acsm_data(chem)
         data = pd.merge(data, acsm ,left_index = True, right_index = True)
     if isinstance(chem,list):
         aqs, spec = AQS_data(chem)
         data = pd.merge(data, aqs ,left_index = True, right_index = True)
     return data,ss_cols,smps_cols
+
+def split_file(f,freq = 'd', chem = 0, cortype = '', ss_vals = ['0.1','0.15','0.25','0.4','0.7']):
+    data = pd.read_csv(f)
+    data = data.set_index('Datetime')
+    data.index = pd.to_datetime(data.index)
+    ss_cols = []
+    for c in data.columns.to_numpy(): 
+        if (f'N(cm-3)_cor_setpt' in c):
+            ss_cols.append(c)
+    data = data.resample(freq).mean()
+    return data, ss_cols
 
 def find_activation(data, smps_cols, ss_cols, ss_vals = ['0.1','0.15','0.4','0.7']):
     FA_cols= []
@@ -302,7 +338,6 @@ def find_deviation(data, ss_cols,const_room =0.10, thresh =0.01,org_thresh= 100,
             slct[Fact] = var
             scat_call(result, slct, x_label=x_label ,y_label=y_label,title=''.join(title),markersize=star_size, verbose=verbose,single=True)
     return data, FA_cols
-
 
 def plot_gen(data, mode = 0,yvars = 'Fa',xvars = 'Dt',const = '',const_room =0.05,ss_vals = ['0.7'], lines ='',date = 0, group ='all', thresh = 0, org_thresh= 100, cormode = False,showCor=False, singleLine=True):
     '''
@@ -384,21 +419,31 @@ def plot_gen(data, mode = 0,yvars = 'Fa',xvars = 'Dt',const = '',const_room =0.0
         O75 = sorted_array[N75:]
         split = {}
         split[f'Geo. Mean (nm)'] = ['Bottom 25% of GeoMean',O25], ['Top 25% of GeoMean', O75]
+    elif lines == 'Chem':
+        sorted_array = np.sort(data[f'k_total'].to_numpy())
+        N25 = int(len(sorted_array) * 0.25) #lower 25% of GeoMean
+        N75 = int(len(sorted_array) * 0.75) #top 25% of GeoMean
+        O25 = sorted_array[:N25]
+        O50 = sorted_array[N25:N75]
+        O75 = sorted_array[N75:]
+        split = {}
+        split[f'k_total'] = [r'Bottom 25% of κ$_{chem}$',O25], [r'Top 25% of κ$_{chem}$', O75]
     # input(list(split.values()))
     '''Set Y values'''
     if yvars =='Fa': #if activation fraction values used for plotting
-        y_name = r'$F_{act}$[1]'
+        y_name = r'$F_{act}$'
         title_list[0] = ('Activation Fraction')
         if len(ss_vals) > 1:
             choice = input(f'Which ss% value would you like to use? ({', '.join(ss_vals)}, or all) ')
         else: choice = ss_vals[0]
         if choice == 'all':
             for ss in ss_vals:
-                Fa = f'Fact_at_{ss}'
+                Fa = f'Fact(ss={ss})'
                 y_cols.append(Fa)
         else:
-            Fa = f'Fact_at_{choice}'
+            Fa = f'Fact(ss={choice})'
             y_cols.append(Fa)
+            y_name +=f'(ss={choice})'
     elif yvars =='Std_Fa': #if activation fraction standard deviation used for plotting
         y_name = 'Fa Dev[1]'
         title_list[0] = (r'$F_{act}$ St.Dev.')
@@ -407,10 +452,10 @@ def plot_gen(data, mode = 0,yvars = 'Fa',xvars = 'Dt',const = '',const_room =0.0
         else: choice = ss_vals[0]
         if choice == 'all':
             for ss in ss_vals:
-                Fa = f'Fact_at_{ss}'
+                Fa = f'Fact(ss={ss})'
                 y_cols.append(Fa)
         else:
-            Fa = f'Fact_at_{choice}'
+            Fa = f'Fact(ss={choice})'
             y_cols.append(Fa)
     for c in y_cols:
         drop_indices = data[data[c]<thresh].index   
@@ -483,6 +528,12 @@ def plot_gen(data, mode = 0,yvars = 'Fa',xvars = 'Dt',const = '',const_room =0.0
         GM = f'Geo. Mean (nm)'
         for i in range(len(y_cols)):
             x_cols.append(GM)
+    elif xvars=='Chem': #if acsm derived kappa values used for plotting
+        x_name = r'$κ_{chem}$ [1]'
+        title_list[-1] = (r'$κ_{chem}$ [1]')
+        org = f'k_total'
+        for i in range(len(y_cols)):
+                x_cols.append(org)
     elif xvars == 'Dt': #if Datetime value used for plotting
         title_list[1] =''
         title_list[-1] =''
@@ -578,16 +629,18 @@ if __name__ == '__main__':
     cpc = r"C:\Users\bensy\Documents\Research\app_CPC.csv"
     smps =[r"C:\Users\bensy\Documents\Research\2024_SMPS_NumberSizeDist_1hr.csv",r"C:\Users\bensy\Documents\Research\SMPS_NumberSizeDist_2025_1hr.csv",r"C:\Users\bensy\Documents\Research\2026_SMPS_NumberSizeDist_1hr.csv"]  #list(input('Provide paths to SMPS file(s). Seperate multiples with a comma: ').replace('"','').split(','))
     ccn = [r"C:\Users\bensy\Documents\Research\CCN_Processed_2024_1hr.csv",r"C:\Users\bensy\Documents\Research\CCN_Processed_2025_1hr.csv",r"C:\Users\bensy\Documents\Research\CCN_Processed_2026_1hr.csv"]     #list(input('Provide paths to CCN file(s). Seperate multiples with a comma: ').replace('"','').split(','))
-    master =  r"C:\Users\bensy\Downloads\MasterDataFile_ChemAOPsCCNSMPSMET_June2024-Oct2025.csv"
+    master =  r"C:\Users\bensy\Documents\Research\ACSMdata_240529-260511_incBC.csv"
     AQS = [r"C:\Users\bensy\Documents\Research\AQS_Processed\AQS_avery_2024.csv",r"C:\Users\bensy\Documents\Research\AQS_Processed\AQS_avery_2025.csv"]
-    data,ss_cols,smps_cols = comb_files(smps,ccn, cpc,chem = master, freq='d')#chem=master
+    merged = r"C:\Users\bensy\Documents\Research\CCN_SMPS_chem.csv"
+    # data,ss_cols,smps_cols = comb_files(smps,ccn, cpc,chem = master, freq='d')#chem=master
+    data,ss_cols = split_file(merged, freq='d')
     mask = pd.Series(False, index=data.index)
     for date in bad_dates:
         mask |= (data.index >= date[0]) & (data.index <= date[-1])
     data = data[~mask]
-    data, FA_cols = find_activation(data, smps_cols, ss_cols)
+    # data, FA_cols = find_activation(data, smps_cols, ss_cols)
     # data, FA_cols = find_deviation(data, ss_cols, const="GeoMean", Var="Org",verbose = True,star_size=15)
-    plot_gen(data,mode='scat',xvars='GeoMean',lines='Org', group='all',thresh=0.13, ss_vals=['0.7'],showCor=True,singleLine =True, org_thresh =1.0) # 
-    out = r"C:\Users\bensy\Documents\Research\CCN_activation_Fraction.csv"#input("Enter filepath to export data as a csv, or press 'enter' to skip: ")
+    plot_gen(data,mode='scat',xvars='Chem',lines='GeoMean', group='all',thresh=0.13, ss_vals=['0.1'],singleLine =False, org_thresh =1.0) # 
+    out = ''r"C:\Users\bensy\Documents\Research\CCN_activation_Fraction.csv"#input("Enter filepath to export data as a csv, or press 'enter' to skip: ")
     if out != '':
         data.to_csv(out)

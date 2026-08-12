@@ -14,11 +14,10 @@
 import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
-from pathlib import Path
+from pathlib import Path, PurePath
 from datetime import datetime
 
 def main():
-    
     #ask user if they would like to combine files
     CombineFilesYN = input("\nWould you like to combine files? (Y/N)\n")
     if CombineFilesYN == 'Y':                                                   #if yes, run CombineFiles
@@ -62,9 +61,6 @@ def main():
                                                                                 #prompt for the full path of data they would like to avearge
                 filepath = Path(input("\nEnter full path of file you would like to average.\n"))
                 AverageFile(pd.DataFrame(),filepath)                            #run AverageFile with an empty dataframe and the path of file specified
-
-
-
 
 def _get_linecount(fpath, keyword, delimiter=',', encoding='ISO-8859-1'):
     """
@@ -138,7 +134,6 @@ def CombineFiles():
                 )
         else:
             metaDataLines = _get_linecount(entry, keyword = 'Scan Number' or 'DateTime Sample Start')          #returns the linecount of metadata
-
             meta = pd.read_table(                                                   #reads in the metadata into a df 'meta'
                             entry, 
                             nrows=metaDataLines, 
@@ -153,9 +148,6 @@ def CombineFiles():
                             skiprows=metaDataLines,
                             delimiter = ','
                         )
-        
-        
-        
         dataTotal = dataTotal._append(dataRaw, ignore_index = True)             #append each file to dataTotal
         metaTotal = metaTotal._append(meta, ignore_index = True)                #appends each metadata to metaTotal 
 
@@ -217,7 +209,7 @@ def AverageFile(DataDF,FilePath):
                         #dataRaw["Date Processed"] = datetime.now()
 
                         #Takes the statistics, raw, and corrected data columns from the data to then be averaged
-                        #we do this so that you arnt trying to average N/A data, or text data
+                        #we do this so that you arent trying to average N/A data, or text data
                         AllColumns = list(dataRaw.columns)                      #lists all the columns
                         #StatsHeaders.append('DateTime Sample Averaged')        #COLUMNS NEED TO SHIFT OVER BY 1 ONCE WE ADD ERROR READING BAR IN QA
                         StatsHeaders = AllColumns[33:41] + AllColumns[42:500]   #selects statistics columns, raw, and corrected data from the list
@@ -230,22 +222,23 @@ def AverageFile(DataDF,FilePath):
                      'To format the time step include a number followed by the unit of time, ex. 5h = 5 hours time step\n'
                      's = seconds, min = minutes, h = hours, d = days, W = weeks, M = months\n')
     dataRaw = dataRaw.resample(StepSize).mean()                                 #averages the data over the designated time step
-    print(dataRaw)                                                              #displays data so you can check its the timestep you wanted
-
+    print(dataRaw)              
+    
+                                                    #displays data so you can check its the timestep you wanted
+    dataClean = FinalCleaning(dataRaw)
     #saves user data apon request
-    CreateFileYN = input('\nWould you like to save this averaged file? (Y/N)\n')#prompt the user to save the averaged file
+    CreateFileYN = input('\nWould you like to save the averaged file? (Y/N)\n')#prompt the user to save the averaged file
     if CreateFileYN == 'Y':                                                     #if yes: create a file
         if FilePath == 'N':                                                     #if there was not a filepath passed at the beginning, 
                                                                                 #prompt for a filepath to save the data to
             name = input('\nEnter the full path for your averaged file and include the file type .csv:\n')    
-            dataRaw.to_csv(name)
+            dataClean.to_csv(name)
         else:                                                                   #if there was a filepath passed
                                                                                 #prompt for a name for the file, and save in the same folder as the filepath
             ParentPath = FilePath.parent
             name = input('\nEnter the desired name for your averaged file and include the file type .csv:\n'
                          '(This will place the file in the same folder as the file you just averaged with the name you specify)\n')    
-            dataRaw.to_csv(ParentPath / name)
-
+            dataClean.to_csv(ParentPath / name)
 
 def QualityAssureFile(DataDF ,filepath = 'N'):
     """
@@ -305,7 +298,6 @@ def QualityAssureFile(DataDF ,filepath = 'N'):
             dataRaw.to_csv(ParentPath / name)
     print(dataRaw)
     return dataRaw                                                              #return QA dataframe
-
 
 def FindOutliersAverage(Data, DataType):
     """
@@ -439,7 +431,48 @@ def RemoveOutliers(Data, Outliers):
 
     return DataNoOutliers                                                       #return Data with outliers removed
 
+def ConvertToSTP(Data, Tstp = 273.15, Pstp= 101.325):
+    if (isinstance(Data, str))|(isinstance(Data, PurePath)): # if data is a file path, read in Data to dataframe, otherwise assume passed dataframe
+        Data = pd.read_csv(Data)
+        Data = Data.set_index('Datetime(UTC)')
+    cols = [col for col in Data.columns.to_numpy() if ('.' in col) and (col.split('.')[0].isdigit())] # pull out numeric columns to correct
+    num_cols = cols.copy()
+    cols.append('Total Concentration (#/cm³)') #stp correct Total Conc as well
+    Tact = Data['Aerosol Temperature (C)'].to_numpy() +273.15
+    Pact = 88.8 #[kPa] average value from CCN ambient pressure sensor
+    Data['Ambient Pressure Avg (kPa)'] = Pact
+    Data['Standard Temperature (C)'] = Tstp - 273.15
+    Data['Standard Pressure (kPa)'] = Pstp
+    Tot = Data.pop('Total Concentration (#/cm³)')
+    Data['Total Concentration (#/cm³)'] = Tot*Pstp/Pact*Tact/Tstp
+    for col in num_cols: # move numeric cols to the end of Dataframe
+        c = Data.pop(col)
+        Data[col] = c*Pstp/Pact*Tact/Tstp
+    return Data
+
+def FinalCleaning(Data):
+    if (isinstance(Data, str))|(isinstance(Data, PurePath)): # if data is a file path, read in Data to dataframe
+        df = pd.read_csv(Data)
+    elif isinstance(Data, pd.DataFrame): # If Data is a dataframe, reset index for processing
+        df = Data.reset_index()
+    try:
+        df = df.set_index('DateTime Sample Start')
+        df.index = df.index.rename('Datetime(UTC)') # utilize a simpler index header common with the CCN 
+        df.index = pd.to_datetime(df.index, format='mixed') 
+    except:
+        df = df.set_index('Datetime(UTC)')
+        df.index = pd.to_datetime(df.index, format='mixed') 
+    drop = [col for col in df.columns.to_numpy() if '_' in col]
+    df = df.drop(columns=drop) #drop the QA columns denoted with a _[diameter]
+    mask = ((df == 0) | (df.isna())).all(axis=1)
+    df = df.loc[~mask]
+    input(df)
+    return df
 
 #if the program exists, run it
 if __name__:
-    main()
+    file = r"C:\Users\bensy\Documents\Research\SMPS\2025_SMPS_NumberSizeDist_1hr.csv"
+    file_out = r"C:\Users\bensy\Documents\Research\SMPS\2025_SMPS_NumberSizeDist_stp_1hr.csv"
+    df = ConvertToSTP(file)
+    df.to_csv(file_out)
+    # main()

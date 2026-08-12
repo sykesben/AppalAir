@@ -14,8 +14,8 @@ EMAIL = "sykesbb@appstate.edu"  # <-- put your AQS-registered email here
 KEY = "saffroncrane32"         # <-- put your AQS key here
 
 BASE_URL = "https://aqs.epa.gov/data/api/sampleData/byState"
-BDATE = "20240101"
-EDATE = "20241231"
+BDATE = "20260101"
+EDATE = "20260701"
 
 
 # State codes and species (parameters)
@@ -29,8 +29,8 @@ states = {
     "WV": "54"}
 
 params = {
-    "Press":  "68108",
-    "Temp":   "68105",
+    # "AQI_Mass":  "88502",
+    # "PM25": "88101",}
     "NH4":  "88301",
     "EC":   "88321",
     "NO3":  "88306",
@@ -59,7 +59,6 @@ def fetch_aqs_response(state_code, param_code):
         "state": state_code,
        # "format": "application/json",
     }
-
     resp = requests.get(BASE_URL, params=params_req, timeout=500)
 
     try:

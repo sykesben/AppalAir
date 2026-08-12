@@ -17,9 +17,9 @@ from os.path import expanduser
 
 #Read in files, feel free to replace these with exact 
 # ccn24 = pd.read_csv(expanduser("~/Documents/Research/CCN_Processed_2024_1hr.csv"))
-ccn = pd.read_csv(expanduser("~/Documents/Research/CCN_Processed_2025_1hr.csv"))
+ccn = pd.read_csv(expanduser("~/Documents/Research/CCN_Processed_2026_1hr.csv"))
 # smps24 =pd.read_csv(expanduser("~/Documents/Research/2024NumConcAVG.csv"))
-smps =pd.read_csv(expanduser("~/Documents/Research/SMPS_NumberSizeDist_2025_1hr.csv"))
+smps =pd.read_csv(expanduser("~/Documents/Research/SMPS_NumberSizeDist_2026_1hr.csv"))
 
 smps=smps.set_index("DateTime Sample Start")
 # smps24 = smps24.set_index('DateTime Sample Start')
@@ -36,15 +36,6 @@ smps.index = pd.to_datetime(smps.index)
 ccn = ccn[['N(cm-3)_avg_setpt0.1', 'N(cm-3)_avg_setpt0.7','T(C)_inlet','T1(C)','T(C)_sample','T(C)_OPC','T(C)_nafion','Q(lpm)_sample','Q(lpm)_sheath','P(hPA)_sample','ss(%)_calc_setpt0.1', 'ss(%)_calc_setpt0.7',]]
 ccn = ccn.resample('d').mean()
 ccn.index.names = ['Date']
-
-numsmps = [s for s in smps.columns.to_numpy() if ('.' in s) and (s.split('.')[0].isdigit())]
-gr200 = [s for s in numsmps if float(s) >200]
-gr80 = [s for s in numsmps if float(s) >80]
-smps = smps[numsmps]
-smps = smps.resample('d').mean()
-smps.index.names = ['Date']
-smps['>80nm'] = smps[gr80].mean(axis=1)  
-smps['>200nm'] =smps[gr200].mean(axis=1)
 
 
 data = pd.merge(ccn,smps[['>80nm', '>200nm']],left_index = True, right_index = True)

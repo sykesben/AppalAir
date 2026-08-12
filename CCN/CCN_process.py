@@ -7,22 +7,21 @@ Purpose: Functions for processing CCN data
 """IMPORTS"""
 import numpy as np
 import pandas as pd 
-import os
 from os.path import expanduser 
-import datetime as dt 
-import scipy as sp
-from scipy.linalg import lstsq
-import matplotlib.pyplot as plt
-from CCN_EBAS_convert import ebas_genfile
-from pathlib import Path
+try:
+    from CCN_EBAS_convert import ebas_genfile
+    ebas = True
+except: 
+    print('CCN_EBAS_convert script not accesable -> EBAS file not generated')
+    ebas = False
 import time
 
 """=====I Read in CCN File and CCN.ini file I====="""
-def readin(path):
+def readin(path, skip1 =True):
     """
     Takes in a path to a CCN file and generates outputs
     ----------
-    Paramaters
+    Parameters
     ++++++++++
     path : [str/path-like] Path to the CCN.ini file
 
@@ -31,7 +30,10 @@ def readin(path):
     data : [pandas DataFrame] read in data
     cols_rename : [dict] dictionary with verbose definition as the key and column name as the value
     """
-    data = pd.read_csv(path,skiprows=lambda x:x==1)#read in csv skipping first row of verbose column headings
+    if skip1:
+        data = pd.read_csv(path,skiprows=lambda x:x==1)#read in csv skipping first row of verbose column headings
+    else:
+        data = pd.read_csv(path) #read in csv 
     try:
         data=data.set_index('Datetime(UTC)')
     except:
@@ -41,7 +43,8 @@ def readin(path):
         except:
             data=data.set_index('Date String (YYYY-MM-DD hh:mm:ss) UTC')
             data.index.names = ['Datetime(UTC)']
-    data.index = pd.to_datetime(data.index)
+    data.index = pd.to_datetime(data.index,format = 'mixed')
+    data = data[data.index>pd.to_datetime('01/01/2024')]
     cols_rename = {'particle number concentration (cm-3)': 'N(cm-3)','inlet temperature (°C)': 'T(C)_inlet','temperature of TEC 1 (°C)':'T1(C)','temperature of TEC 2 (°C)':'T2(C)'
                    ,'temperature of TEC 3 (°C)':'T3(C)','sample temperature (°C)': 'T(C)_sample','OPC temperature (°C)':'T(C)_OPC','nafion temperature (°C)':'T(C)_nafion',
                    'sample flow rate (lpm)': 'Q(lpm)_sample','sheath flow (lpm)':'Q(lpm)_sheath','reported supersaturation from onboard instrument calibration (%)':'ss(%)_setpt',
@@ -53,7 +56,7 @@ def readini(path):
     """
     Takes in a path to a CCN.ini file and generates outputs
     ----------
-    Paramaters
+    Parameters
     ++++++++++
     path : [str/path-like] Path to the CCN.ini file
 
@@ -95,7 +98,7 @@ def sup_sat(T1,T2,A=16.01,B=1.03):#A=16.01,B=1.03
     Super-Saturation Calculator from Temperature gradient. Assume linear relationship 
     between ss% and TG (for ss%>0.1%) such that TG = A*ss% + B.
     ----------
-    Paramaters
+    Parameters
     ++++++++++
     T1: [str] Temperature at TEC 1 [°C] (usually variable: 'T1_N12')
     T2: [str] Temperature at TEC 2 [°C] (usually variable: 'T2_N12')
@@ -112,11 +115,11 @@ def sup_sat(T1,T2,A=16.01,B=1.03):#A=16.01,B=1.03
     return tg,ss
 
 """=====III Average data over time and super saturation set point III====="""
-def time_avg_ss(df, deltat='1h', ss_vals = [], ssflag = True):
+def time_avg_ss(df, deltat='1h', ss_vals = [], ssflag = True, clean = False):
     '''
     Groups values by machine set super saturation allowing for group time averaged values
     ----------
-    Paramaters
+    Parameters
     ++++++++++
     df : [pandas.Dataframe] Data to time average 
     deltat : [str] time period to re-average to (default: '1h', must be in '#n' format)
@@ -124,153 +127,75 @@ def time_avg_ss(df, deltat='1h', ss_vals = [], ssflag = True):
     ss_vals : [list or dict] possible values of ss from machine. If no value is given look at all recorded set points.
         IF a dictionary, the keys should be dates and the values ss lists to apply seperate ss values over
         different date ranges. (default: [])
-    ss_flag: [list of bool] Does the measured ss devate more than 20% from the set point. (default: True)
+    ss_flag: [bool] Does the measured ss devate more than 20% from the set point. (default: True)
 
     Returns
     +++++++
     df: [pandas.Dataframe] Time averaged data
     '''
-    if isinstance(ss_vals, dict):
-        start = time.time()
-        dt_dict = {'m': 1, 'h': 60, 'D': 1440, 'M': 43830, 'Y': 525960}
-        dt_num = float(''.join(filter(str.isdigit, deltat)))
-        dt_minutes = dt_num * dt_dict[deltat[1]]
-        df_new =pd.DataFrame()
-
-        for date, ss_list in ss_vals.items():
-            start, end = map(pd.to_datetime, date.split(' - '))
-            data = df.loc[start:end]
-
-            if len(ss_list) == 0: #if no machine super saturation set points, keep the unique supersaturations
-                ss_list = np.unique(df['ss(%)_setpt'].to_numpy())
-            
-            # keep only stable ss setpoints
-            data = data[data['ss(%)_setpt'] == data['ss(%)_setpt'].shift()]
-
-            if ssflag:
-                data = data[data['ss_flag'] == 0]
-
-            pc_dict = {f'N(cm-3)_avg_setpt{s}': [] for s in ss_list}
-            ss_dict = {f'ss(%)_calc_setpt{s}': [] for s in ss_list}
-            tg_dict = {f'TG(C)_avg_setpt{s}': [] for s in ss_list}
-            t1_dict = {f'T1(C)_avg_setpt{s}': [] for s in ss_list}
-            t2_dict = {f'T2(C)_avg_setpt{s}': [] for s in ss_list}
-
-            data_new = data.resample(deltat).mean() #Start at the top of the hour,day, month
-            times = data_new.index.to_numpy()
-            completeness = []
-
-            for i in range(len(times)):
-                ts = times[i]
-                tf = ts +pd.Timedelta(dt_num, deltat[1])- pd.Timedelta(1,'min')
-                slct = data.loc[ts:tf]
-                completeness.append(len(slct)/dt) #how many minutes/vs minutes in an hour
-                for ss in ss_list:
-                    if ssflag:
-                        pc = np.nanmean(slct.loc[((slct['ss(%)_setpt'] == ss)& (slct['ss_flag']== 0)), 'N(cm-3)'].to_numpy())
-                        cal = np.nanmean(slct.loc[((slct['ss(%)_setpt'] == ss)& (slct['ss_flag']== 0)),'ss(%)_calc'].to_numpy())
-                        tg = np.nanmean(slct.loc[((slct['ss(%)_setpt'] == ss)& (slct['ss_flag']== 0)),'TG(C)_calc'].to_numpy())
-                        t1 = np.nanmean(slct.loc[((slct['ss(%)_setpt'] == ss)& (slct['ss_flag']== 0)),'T1(C)'].to_numpy())
-                        t2 = np.nanmean(slct.loc[((slct['ss(%)_setpt'] == ss)& (slct['ss_flag']== 0)),'T2(C)'].to_numpy())
-                    else:
-                        pc = np.nanmean(slct.loc[slct['ss(%)_setpt'] == ss, 'N(cm-3)'].to_numpy())
-                        cal = np.nanmean(slct.loc[(slct['ss(%)_setpt'] == ss),'ss(%)_calc'].to_numpy())
-                        tg = np.nanmean(slct.loc[slct['ss(%)_setpt'] == ss,'TG(C)_calc'].to_numpy())
-                        t1 = np.nanmean(slct.loc[((slct['ss(%)_setpt'] == ss)),'T1(C)'].to_numpy())
-                        t2 = np.nanmean(slct.loc[((slct['ss(%)_setpt'] == ss)),'T2(C)'].to_numpy())
-                    pc_dict[f'N(cm-3)_avg_setpt{ss}'].append(pc)
-                    ss_dict[f'ss(%)_calc_setpt{ss}'].append(cal)
-                    tg_dict[f'TG(C)_avg_setpt{ss}'].append(tg)
-                    t1_dict[f'T1(C)_avg_setpt{ss}'].append(t1)
-                    t2_dict[f'T2(C)_avg_setpt{ss}'].append(t2)
-            pc_cols = pd.DataFrame.from_dict(pc_dict)
-            pc_cols.index = data_new.index.to_numpy()
-            ss_cols = pd.DataFrame.from_dict(ss_dict)
-            ss_cols.index = data_new.index.to_numpy()
-            tg_cols = pd.DataFrame.from_dict(tg_dict)
-            tg_cols.index = data_new.index.to_numpy()
-            t1_cols = pd.DataFrame.from_dict(t1_dict)
-            t1_cols.index = data_new.index.to_numpy()
-            t2_cols = pd.DataFrame.from_dict(t2_dict)
-            t2_cols.index = data_new.index.to_numpy()
-            data_new = data_new.merge(pc_cols,right_index = True, left_index = True)
-            data_new = data_new.merge(ss_cols,right_index = True, left_index = True)
-            data_new = data_new.merge(tg_cols,right_index = True, left_index = True)
-            data_new = data_new.merge(t1_cols,right_index = True, left_index = True)
-            data_new = data_new.merge(t2_cols,right_index = True, left_index = True)
-            data_new['avg_complete'] = completeness
-            if df_new.empty:
-                df_new = data_new
-            else:
-                df_new = pd.concat([df_new,data_new])
-        end = time.time()
-        print(f'time average function time is {end-start}')
-        return df_new
-    else: 
-        start = time.time()
-        ss_list= ss_vals
-        dt_dict = {'m':1, 'h':60, 'D':1_440, 'M':43_830, 'Y': 525_960} # conversion factor to minutes
-        dt_num = float(''.join([n for n in deltat if n.isdigit()]))
-        dt = dt_num * dt_dict[deltat[1]]
-        if len(ss_list) == 0:
-            ss_list = np.unique(df['ss(%)_setpt'].to_numpy())
-        pc_dict = {f'N(cm-3)_avg_setpt{s}': [] for s in ss_list}
-        ss_dict = {f'ss(%)_calc_setpt{s}': [] for s in ss_list}
-        tg_dict = {f'TG(C)_avg_setpt{s}': [] for s in ss_list}
-        t1_dict = {f'T1(C)_avg_setpt{s}': [] for s in ss_list}
-        t2_dict = {f'T2(C)_avg_setpt{s}': [] for s in ss_list}
-        df_new = df.resample(deltat).mean() #Start at the top of the hour,day, month
-        times = df_new.index.to_numpy()
-        completeness = []
-        for i in range(len(times)):
-            ts = times[i]
-            tf = ts +pd.Timedelta(dt_num, deltat[1])- pd.Timedelta(1,'min')
-            slct = df.loc[ts:tf]
-            completeness.append(len(slct)/dt) #how many minutes/vs minutes in an hour
-            for ss in ss_list:
-                if ssflag:
-                    pc = np.nanmean(slct.loc[((slct['ss(%)_setpt'] == ss)& (slct['ss_flag']== 0)), 'N(cm-3)'].to_numpy())
-                    cal = np.nanmean(slct.loc[((slct['ss(%)_setpt'] == ss)& (slct['ss_flag']== 0)),'ss(%)_calc'].to_numpy())
-                    tg = np.nanmean(slct.loc[((slct['ss(%)_setpt'] == ss)& (slct['ss_flag']== 0)),'TG(C)_calc'].to_numpy())
-                    t1 = np.nanmean(slct.loc[((slct['ss(%)_setpt'] == ss)& (slct['ss_flag']== 0)),'T1(C)'].to_numpy())
-                    t2 = np.nanmean(slct.loc[((slct['ss(%)_setpt'] == ss)& (slct['ss_flag']== 0)),'T2(C)'].to_numpy())
-                else:
-                    pc = np.nanmean(slct.loc[slct['ss(%)_setpt'] == ss, 'N(cm-3)'].to_numpy())
-                    cal = np.nanmean(slct.loc[(slct['ss(%)_setpt'] == ss),'ss(%)_calc'].to_numpy())
-                    tg = np.nanmean(slct.loc[slct['ss(%)_setpt'] == ss,'TG(C)_calc'].to_numpy())
-                    t1 = np.nanmean(slct.loc[((slct['ss(%)_setpt'] == ss)),'T1(C)'].to_numpy())
-                    t2 = np.nanmean(slct.loc[((slct['ss(%)_setpt'] == ss)),'T2(C)'].to_numpy())
-                pc_dict[f'N(cm-3)_avg_setpt{ss}'].append(pc)
-                ss_dict[f'ss(%)_calc_setpt{ss}'].append(cal)
-                tg_dict[f'TG(C)_avg_setpt{ss}'].append(tg)
-                t1_dict[f'T1(C)_avg_setpt{ss}'].append(t1)
-                t2_dict[f'T2(C)_avg_setpt{ss}'].append(t2)
-        pc_cols = pd.DataFrame.from_dict(pc_dict)
-        pc_cols.index = df_new.index.to_numpy()
-        ss_cols = pd.DataFrame.from_dict(ss_dict)
-        ss_cols.index = df_new.index.to_numpy()
-        tg_cols = pd.DataFrame.from_dict(tg_dict)
-        tg_cols.index = df_new.index.to_numpy()
-        t1_cols = pd.DataFrame.from_dict(t1_dict)
-        t1_cols.index = df_new.index.to_numpy()
-        t2_cols = pd.DataFrame.from_dict(t2_dict)
-        t2_cols.index = df_new.index.to_numpy()
-        df_new = df_new.merge(pc_cols,right_index = True, left_index = True)
-        df_new = df_new.merge(ss_cols,right_index = True, left_index = True)
-        df_new = df_new.merge(tg_cols,right_index = True, left_index = True)
-        df_new = df_new.merge(t1_cols,right_index = True, left_index = True)
-        df_new = df_new.merge(t2_cols,right_index = True, left_index = True)
-        df_new['avg_complete'] = completeness
-        end = time.time()
-        print(f'Time average function time is {end-start}')
-        return df_new
+    start = time.time()
+    ss_list= ss_vals
+    dt_dict = {'m':1, 'h':60, 'D':1_440, 'M':43_830, 'Y': 525_960} # conversion factor to minutes
+    dt_num = float(''.join([n for n in deltat if n.isdigit()]))
+    dt = dt_num * dt_dict[deltat[1]]
+    if len(ss_list) == 0:
+        ss_list = np.unique(df['ss(%)_setpt'].to_numpy())
+    pc_dict = {f'N(cm-3)_avg_setpt{s}': [] for s in ss_list}
+    ss_dict = {f'ss(%)_calc_setpt{s}': [] for s in ss_list}
+    tg_dict = {f'TG(C)_avg_setpt{s}': [] for s in ss_list}
+    t1_dict = {f'T1(C)_avg_setpt{s}': [] for s in ss_list}
+    t2_dict = {f'T2(C)_avg_setpt{s}': [] for s in ss_list}
+    df_new = df.resample(deltat).mean() #Start at the top of the hour,day, month
+    times = df_new.index.to_numpy()
+    completeness = []
+    for i in range(len(times)):
+        ts = times[i]
+        tf = ts +pd.Timedelta(dt_num, deltat[1])- pd.Timedelta(1,'min')
+        slct = df.loc[ts:tf]
+        check = slct[slct['ss_dev']>20.0]
+        if clean:    # filter based on passed flags
+            flag = ['Q_flag','T1_flag1','T1_flag2','T1_flag3']
+            slct = slct.loc[(slct[flag] == 0).all(axis=1)] 
+        if ssflag: # filter based only on ss setpoint deviation -> almost always used 
+            slct = slct.loc[slct['ss_flag'] == 0]
+        completeness.append(len(slct)/dt) #how many minutes/vs minutes in an hour
+        for ss in ss_list:
+            pc = np.nanmean(slct.loc[slct['ss(%)_setpt'] == ss, 'N(cm-3)'].to_numpy())
+            cal = np.nanmean(slct.loc[(slct['ss(%)_setpt'] == ss),'ss(%)_calc'].to_numpy())
+            tg = np.nanmean(slct.loc[slct['ss(%)_setpt'] == ss,'TG(C)_calc'].to_numpy())
+            t1 = np.nanmean(slct.loc[((slct['ss(%)_setpt'] == ss)),'T1(C)'].to_numpy())
+            t2 = np.nanmean(slct.loc[((slct['ss(%)_setpt'] == ss)),'T2(C)'].to_numpy())
+            pc_dict[f'N(cm-3)_avg_setpt{ss}'].append(pc)
+            ss_dict[f'ss(%)_calc_setpt{ss}'].append(cal)
+            tg_dict[f'TG(C)_avg_setpt{ss}'].append(tg)
+            t1_dict[f'T1(C)_avg_setpt{ss}'].append(t1)
+            t2_dict[f'T2(C)_avg_setpt{ss}'].append(t2)
+    pc_cols = pd.DataFrame.from_dict(pc_dict)
+    pc_cols.index = df_new.index.to_numpy()
+    ss_cols = pd.DataFrame.from_dict(ss_dict)
+    ss_cols.index = df_new.index.to_numpy()
+    tg_cols = pd.DataFrame.from_dict(tg_dict)
+    tg_cols.index = df_new.index.to_numpy()
+    t1_cols = pd.DataFrame.from_dict(t1_dict)
+    t1_cols.index = df_new.index.to_numpy()
+    t2_cols = pd.DataFrame.from_dict(t2_dict)
+    t2_cols.index = df_new.index.to_numpy()
+    df_new = df_new.merge(pc_cols,right_index = True, left_index = True)
+    df_new = df_new.merge(ss_cols,right_index = True, left_index = True)
+    df_new = df_new.merge(tg_cols,right_index = True, left_index = True)
+    df_new = df_new.merge(t1_cols,right_index = True, left_index = True)
+    df_new = df_new.merge(t2_cols,right_index = True, left_index = True)
+    df_new['avg_complete'] = completeness
+    end = time.time()
+    print(f'Time average function time is {end-start}')
+    return df_new
 
 """=====IV Apply a weighted linear correction to the CCN particle number to ss% IV====="""
-def rowwise_linfit(X,X_new, Y):
+def rowwise_linfit(X,X_new,Y):
     """
     Fits Y_i = a_i * X_i + b_i for each row i.
     ----------
-    Paramaters
+    Parameters
     ++++++++++
     X : [array-like] Independent variable values w/ shape (n_rows, n_points)
     Y : [array-like] Dependent variable values w/ shape (n_rows, n_points)
@@ -307,7 +232,7 @@ def weighted_corr(df,ss_vals,param):
     """
     Applies a weighted average to generate a linear fit for N vs ss
     ----------
-    Paramaters
+    Parameters
     ++++++++++
     df : [Pandas.DataFrame] Data to process 
     ss_vals : [list of float] List of super saturation set points
@@ -364,7 +289,7 @@ def stp_corr(df,cols,Tstp = 273.15, Pstp= 1013.25):
     r"""
     Applies a STP correction to the number concentration.
     ----------
-    Paramaters
+    Parameters
     ++++++++++
     df : [Pandas.DataFrame] Data to process.  
     cols : [list of str] Columns to apply correction to.
@@ -377,7 +302,7 @@ def stp_corr(df,cols,Tstp = 273.15, Pstp= 1013.25):
     """
     Tact = (df['T(C)_sample'].to_numpy() + 273.15) #temp in kelvin
     Pact = (df['P(hPA)_sample'].to_numpy())#pressure in hPa
-    df['T(C)_stp'] = Tstp-273.15
+    df['T(C)_stp'] = Tstp - 273.15
     df['P(hPA)_stp'] = Pstp
     for col in cols:
         new_col= 'cor_stp'.join(col.split('cor'))
@@ -388,7 +313,7 @@ def flow_corr_flat(df, start_date,end_date, flow, cols, ratio, int0, int1, name 
     r"""
     Applies a correction to the flow value for vol conc adjustement
     ----------
-    Paramaters
+    Parameters
     ++++++++++
     df : [pd.DataFrame] Data to process.  
     start_date : [pd.Datetime] Start date to begin the linear correction
@@ -414,10 +339,10 @@ def flow_corr_flat(df, start_date,end_date, flow, cols, ratio, int0, int1, name 
     return df
 
 def flow_corr_log(df, start_date,end_date, flow, cols, ratio, int0, int1, name = ''):
-    r"""
+    """
     Applies a log correction to the flow value for vol conc adjustement
     ----------
-    Paramaters
+    Parameters
     ++++++++++
     df : [pd.DataFrame] Data to process.  
     start_date : [pd.Datetime] Start date to begin the linear correction
@@ -443,10 +368,10 @@ def flow_corr_log(df, start_date,end_date, flow, cols, ratio, int0, int1, name =
     return df
 
 def flow_corr_lin(df, start_date,end_date, flow, cols, ratio0,ratio1, int0, int1,int2,name = ''):
-    r"""
+    """
     Applies a linear correction to the flow value for vol conc adjustement
     ----------
-    Paramaters
+    Parameters
     ++++++++++
     df : [pd.DataFrame] Data to process.  
     start_date : [pd.Datetime] Start date to begin the linear correction
@@ -480,7 +405,7 @@ def CCN_EBAS(file_in,folder_out, ss_vals):
     """
     Takes in a path to processed CCN file and generates a NASA AMES formated file
     ----------
-    Paramaters
+    Parameters
     ++++++++++
     file_in : [str/path-like] Path to the processed CCN file
     folder_out : [str/path-like] Path to folder to place EBAS file
@@ -492,19 +417,22 @@ def CCN_EBAS(file_in,folder_out, ss_vals):
     """
     df = pd.read_csv(file_in)#read in csv skipping first row of verbose column headings
     df=df.set_index('Datetime(UTC)')
+    N = df['N_flag'].to_numpy()
 
     df = df.fillna(0)
     df.index = pd.to_datetime(df.index)
     dates= df.index.to_list()
     # input(np.isnan(np.sum(df.values.tolist())))
     ccn_corr_cols = [f'N(cm-3)_cor_stp_setpt{ss}' for ss in ss_vals]
-    ccn_header = [f'cloud_condensation_nuclei_number_concentration, ss={sp}%' for sp in ss_vals]
+    ccn_header = [f'cloud_condensation_nuclei_number_concentration' for sp in ss_vals]
+    ccn_ss = [f'{sp}' for sp in ss_vals]
     ccn_cols = [f'ccnc[ss={sp}]' for sp in ss_vals]
     data = df[ccn_corr_cols].values.tolist()
-    # df['flag'] = [000]
-    # df['flag']['Q_flag' ==1] = [662]
-    # df['flag']['integrity_flag' == 1] = [111]
+
     flags = [[[000] for j in range(len(data[i]))] for i in range(len(dates))]
+    for i in range(len(N)):
+        if (N[i]==1):
+            flags[i] = [[459] for j in range(len(data[i]))]
     data =  list(map(list, zip(*data)))
     flags = list(map(list, zip(*flags)))
 
@@ -518,4 +446,4 @@ def CCN_EBAS(file_in,folder_out, ss_vals):
     date_list.append(pd.to_datetime(dates[-1]))  
     # data = np.nan_to_num(data, nan=1, posinf=1e6, neginf=-1e6)
     # input(np.isnan(np.sum(data)))
-    ebas_genfile(folder_out, data, flags, dates, ccn_header, ccn_cols)
+    ebas_genfile(folder_out, data, flags, dates, ccn_header, ccn_ss, ccn_cols)

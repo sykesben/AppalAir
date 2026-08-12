@@ -4,6 +4,8 @@ from ebas.domain.basic_domain_logic.time_period import estimate_period_code, \
     estimate_resolution_code, estimate_sample_duration_code
 import datetime
 import pandas as pd 
+import numpy as np 
+from pathlib import Path
 import os
 
 __version__ = '1.00.00'
@@ -19,8 +21,8 @@ def set_fileglobal_metadata(nas):
     """
     # All times reported to EBAS need to be in UTC!
     # Setting the timezone here explicitly should remind you to check your data
-    nas.metadata.timezone = 'UTC'
     nas.metadata.typecode = 'TI'   # time irregular-> time series with gaps
+    nas.metadata.timezone = 'UTC'
 
     # Revision information
     nas.metadata.revdate = datetime.datetime.now()
@@ -37,7 +39,7 @@ def set_fileglobal_metadata(nas):
         OR_ADDR_ZIP='28608', OR_ADDR_CITY='Boone', OR_ADDR_COUNTRY='United States of America')
 
     # Projects the data are associated to
-    nas.metadata.projects = ['GAW-WDCA','NOAA-ESRL']
+    nas.metadata.projects = ['GAW-WDCA', 'NOAA-ESRL']
 
     # Data Originators (PIs)
     nas.metadata.originator = []
@@ -76,38 +78,58 @@ def set_fileglobal_metadata(nas):
         ))
 
     # Station metadata
-    nas.metadata.station_code = 'US3446S' #<--ASK Dr. Sherman
+    nas.metadata.station_code = 'US3446S' 
     nas.metadata.platform_code = 'US3446C'
     nas.metadata.station_name = u'AppalAIR'
 
-    nas.metadata.station_gaw_id = 'APP'#<--ASK Dr. Sherman
+    nas.metadata.station_gaw_id = 'APP'
     nas.metadata.station_gaw_name = u'Appalachian State University'
     # nas.metadata.station_airs_id =    # N/A
-    # nas.metadata.station_other_ids = '2'#<--ASK Dr. Sherman'
+    # nas.metadata.station_other_ids = '2'
     nas.metadata.station_state_code =  'US3446C'
     nas.metadata.station_landuse = 'Residential'
     nas.metadata.station_setting = 'Mountain'
-    nas.metadata.station_gaw_type = 'R'#<--ASK Dr. Sherman'
+    nas.metadata.station_gaw_type = 'R'
     nas.metadata.station_wmo_region = 4
     nas.metadata.station_latitude = 36.2130012512
     nas.metadata.station_longitude = -81.6920013428
-    nas.metadata.station_altitude = 1076
+    nas.metadata.station_altitude = 1076 #[m]
     
 
     # More file global metadata, but those can be overridden per variable
     # See set_variables for examples
-    nas.metadata.instr_type = 'CCNC'
+    nas.metadata.instr_type = 'smps'
     nas.metadata.lab_code = 'US10L'
-    nas.metadata.instr_name = 'DMT_CCN_100'
-    nas.metadata.method = 'US10L_ccn'
+    nas.metadata.instr_name = 'TSI_SMPS3938_APP'
+    nas.metadata.instr_manufacturer ='TSI'
+    nas.metadata.instr_model = '3938'
+    nas.metadata.method = 'US10L_smps'
     nas.metadata.regime = 'IMG'
     nas.metadata.matrix = 'aerosol'
-    # nas.metadata.comp_name ='cloud_condensation_nuclei_number_concentration'
-    # nas.metadata.unit  ='1/cm3'    #will be set on variable level
-    nas.metadata.vol_std_temp = 273.15 
-    nas.metadata.vol_std_pressure = 1013.25 
+    nas.std_method = 'SOP=Wiedensohler2012' 
+    
+    nas.metadata.inlet_type = 'Open conductive tubing'
+    nas.metadata.hum_temp_ctrl = 'Nafion dryer'
+    nas.metadata.hum_temp_ctrl_desc = 'sample dried to below 40% RH with nafion dryeroperated with reduced pressure sheath air'
+    
+    # nas.metadata.comp_name ='particle_number_size_distribution'
+    # nas.metadata.unit  ='#/cm3'    #will be set on variable level
+    nas.metadata.vol_std_temp = 273.15 #[K]
+    nas.metadata.vol_std_pressure = 1013.25 #[hpa]
     nas.metadata.statistics = 'arithmetic mean'
     nas.metadata.datalevel = '2'
+    nas.metadata.period = '1y'
+    nas.metadata.resolution = '5mn'
+    nas.metadata.duration = '5mn'
+    nas.metadata.rescode_sample = '5mn'
+    nas.metadata.detection_limit=(0, '1/cm3') 
+    nas.metadata.detection_limit_desc=' Determined only by instrument counting statistics, no detection limit flag used'
+    nas.metadata.uncertainty_desc='uncertainty range between instruments in intercomparison by Wiedensohler et al. 2012. (AMT)'
+   
+    nas.metadata.zero_negative='Zero possible'
+    nas.metadata.zero_negative_desc='Zero values may appear due to statistical variations at very low concentrations'
+   
+    
 
 def set_time_axes(nas, dates):
     """
@@ -165,7 +187,29 @@ def set_time_axes(nas, dates):
     nas.metadata.reference_date = \
         datetime.datetime(nas.sample_times[0][1].year, 1, 1)
 
-def set_variables(nas,data_table, flag_table, headers,ss,cols):
+# def set_variables(nas,data_table, flag_table, headers,cols):
+#     """
+#     Set metadata and data for all variables for the EbasNasaAmes file object.
+
+#     Parameters:
+#         nas    EbasNasaAmes file object
+#     Returns:
+#         None
+#     """
+#     # variable 1: examples for missing values and flagging
+#     for i in range(len(data_table)):
+#         values = data_table[i]
+#         flags = flag_table[i]#[[0] for i in range(len(values))] #
+#         # input(np.shape(values))
+#         # values = np.nan_to_num(data, nan=0)
+#         metadata = DataObject()
+#         metadata.comp_name = headers[i]
+#         # metadata.unit = 
+#         metadata.title = cols[i]
+#         nas.variables.append(DataObject(values_=values, flags=flags, flagcol=True,
+#                                     metadata=metadata))
+
+def set_variables(nas,data_table, flag_table, headers, units, stats, locs, Ds, cols):
     """
     Set metadata and data for all variables for the EbasNasaAmes file object.
 
@@ -177,18 +221,19 @@ def set_variables(nas,data_table, flag_table, headers,ss,cols):
     # variable 1: examples for missing values and flagging
     for i in range(len(data_table)):
         values = data_table[i]
-        flags = flag_table[i]#[[0] for i in range(len(values))] #
-        # input(np.shape(values))
-        # values = np.nan_to_num(data, nan=0)
+        flags = flag_table[i]
         metadata = DataObject()
         metadata.comp_name = headers[i]
-        metadata.unit = '1/cm3'
+        metadata.unit = units[i]
+        metadata.statistics = stats[i]
         metadata.title = cols[i]
-        nas.variables.append(DataObject(values_=values, flags=flags, flagcol=True,
-                                    metadata=metadata))
-        nas.add_var_characteristics(-1, 'SS', ss[i])
+        nas.variables.append(DataObject(values_=values, flags=flags, flagcol=True,metadata=metadata))
+        if locs[i] != '':
+            nas.add_var_characteristics(-1, 'Location', locs[i])
+        if Ds[i] != '':
+            nas.add_var_characteristics(-1, 'D', Ds[i])
 
-def ebas_genfile(path,data,flag,date, headers,ss, cols):
+def ebas_genfile(path, data, flag, date, headers, units, stats, locs, Ds, cols): #ebas_genfile(path,data,flag,date, headers,cols):
     """
     Main program for ebas_flatcsv
     Created for lexical scoping.
@@ -202,7 +247,7 @@ def ebas_genfile(path,data,flag,date, headers,ss, cols):
     Returns:
         none
     """
-    path_out = os.path.join(path, 'ACTRIS')
+    path_out = path
 
     # Create an EbasNasaAmes file object
     nas = nasa_ames.EbasNasaAmes()
@@ -213,7 +258,7 @@ def ebas_genfile(path,data,flag,date, headers,ss, cols):
     # Set the time axes and related metadata
     set_time_axes(nas,date)
     # Set metadata and data for all variables
-    set_variables(nas, data, flag, headers,ss, cols)
+    set_variables(nas, data, flag, headers, units, stats, locs, Ds, cols)
 
     # write the file:
     # with open(r"C:\Users\bensy\Documents\Research\EBAStest.txt", "w") as text_file:

@@ -69,7 +69,7 @@ def hist_call(data,slct,append=0):
         leg.append(f'{var_2}')
     hist_plot(y,leg, append=append)
 
-def scat_call(data, slct, x_label, y_label, title, split=0, short_legend =True, verbose = True,leg_dict = '', single = True, markersize =10,clrs = []):
+def scat_call(data, slct, x_label, y_label, title, split=0, short_legend =True, verbose = True, single = True, markersize =10,clrs = []):
     '''
     Takes in a dataframe of SMPS and CCN data and generates an interactive scatter plot based on 
     the selected columns and mode.
@@ -113,15 +113,10 @@ def scat_call(data, slct, x_label, y_label, title, split=0, short_legend =True, 
                     leg.append(f'{m:.2e}x + {b:.2f} | corr = {cor:.2f}')
                 else: 
                     leg.append(f'{m:.2e}x + {b:.2f}')
+            if verbose: 
+                leg.append(f'{var_1} vs {var_2} | {m:.2e}x + {b:.2f} | corr = {cor:.2f}')
             else: 
-                if leg_dict != '':
-                    name = leg_dict[var_1]
-                else:
-                    name = f'{var_1} vs {var_2}'
-                if verbose: 
-                    leg.append(f'{name} | {m:.2e}x + {b:.2f} | corr = {cor:.2f}')
-                else: 
-                    leg.append(f'{name} ({m:.2e}x + {b:.2f})')
+                leg.append(f'{var_1} vs {var_2} ({m:.2e}x + {b:.2f})')
             m_all.append(m)
             b_all.append(b)
             r_all.append(cor)
@@ -149,12 +144,9 @@ def scat_call(data, slct, x_label, y_label, title, split=0, short_legend =True, 
                     v_list = list(var_1.split('act_at_'))
                     var_1 = str(v_list[0]) + r'$_{act}$[ss=' + str(v_list[-1]) +']'
                 if not short_legend:
-                    legend = f'{var_1} vs {var_2} at {append}'
+                    legend = f'{var_1} vs {var_2} at {append} | corr = {cor:.2f}'
                 else:
-                    legend = fr'{append}'
-                legend +=  f' | {m:.2e}x + {b:.2f}'
-                if verbose:
-                    legend += f' | corr = {cor:.2f}'
+                    legend = f'{append} | corr = {cor:.2f}'
                 leg.append(legend)
                 m_all.append(m)
                 b_all.append(b)
@@ -312,39 +304,6 @@ def hourly_box_call(data,slct, y_label,title):
         clr.append('mediumpurple')
     box_plot(y,dates, clr, y_label=y_label, title=title)
 
-def ss_box_call(data,slct, y_label,title):
-    '''
-    Takes in a dataframe of ss-indexed data and generates an interactive box plot based on 
-    the selected columns.
-    ----------
-
-    Parameters
-    ++++++++++
-    data : [DataFrame] Combined CCN and SMPS data, or list of two combined data files
-    slct : [str] column name for processing
-    y_label : [str] labels for box plot
-
-    Returns
-    ++++++++++
-    none 
-    '''
-    y= []
-    SS = []
-    clr =[]
-    ss = data.index.to_numpy(dtype = str)
-    data['ss'] = ss
-    data = data[[slct, 'ss']]
-    data = data.dropna()
-    ssV = data['ss'].to_numpy()
-    data = data[slct]
-    unq_ss = np.unique(ssV,sorted=True)
-    for s in unq_ss:
-        mdata = data[ssV == s]
-        y.append(mdata.to_numpy())
-        SS.append(f'{s}')
-        clr.append('mediumpurple')
-    box_plot(y, SS, clr, y_label=y_label, title=title)
-
 def line_plot(x,y,legs, x_label, y_label, title):
     plt.ion()
     fig, ax = plt.subplots()
@@ -382,9 +341,9 @@ def line_plot(x,y,legs, x_label, y_label, title):
 
 def scat_plot(x,y,fit_x,fit_y,legs, x_label, y_label, title,ms = 10, clrs = [],mrks =[]):
     if len(clrs) < len(x):
-        clrs = ["#2F459C","#EC7744","#C1A843","#8F368D","#7E3BAB","#4DB55A", "#3D9896", "#9C3131"]
+        clrs = ["#173ED9","#EE5310","#FFCC00","#9D0B9B","#8619CE","#12CE2B", "#D1520E", "#CD1616"]
     if len(mrks) < len(x):
-        mrks = ['.','X','*','2','^','P','s','v','D']#np.full((len(x),), '*')
+        mrks = ['.','*','2','s','^','P','X','v','D']#np.full((len(x),), '*')
     plt.ion()
     fig, ax = plt.subplots()
     lines = []
@@ -467,7 +426,7 @@ def hist_plot(y,legs, y_label, title):
     input('Press enter to exit plot...')
     plt.ioff()
 
-def box_plot(y,legs, clrs, y_label, title, legend =''):
+def box_plot(y,ticks, clrs, y_label, title, legend =''):
     plt.ion()
     fig, ax = plt.subplots()
     flier = dict(marker='D', markerfacecolor='orangered', markersize=9,
@@ -475,13 +434,22 @@ def box_plot(y,legs, clrs, y_label, title, legend =''):
     median= dict(color = 'maroon', linewidth = 3)
     bplot = ax.boxplot(y,
                 flierprops=flier,
-                medianprops=median,
-                patch_artist=True, # color plots
-                tick_labels=legs) # will be used to label x-ticks)  
+                patch_artist=True,) # color plots)
     # fill with colors
     for patch, color in zip(bplot['boxes'], clrs):
         patch.set_facecolor(color)
         patch.set_alpha(0.5)
+    for med, color in zip(bplot['medians'], clrs):
+        darker ={'rebeccapurple':'indigo','lightcyan':'teal'}
+        med.set_color(darker[color])
+        med.set_linewidth(3)
+
+    # One tick per month
+    unique_ticks = ticks[::2]                 # every other label
+    tick_pos = np.arange(len(unique_ticks))*2 + 1.5
+
+    ax.set_xticks(tick_pos)
+    ax.set_xticklabels(unique_ticks)
     if legend != '':
         ax.legend([bplot['boxes'][i] for i in range(len(clrs))], legend)
     ax.set_title(title)
