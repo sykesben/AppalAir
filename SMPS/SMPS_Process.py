@@ -11,11 +11,12 @@ from SMPS_EBAS_convert import ebas_genfile
 
 '''If ran as primary user, dev should be set to true, and paths should be specified'''
 dev = True
+cut_RH = 40
 year = '2026'                                                               # year to pull from
 if year != '':                                                              # if year is provided, set start and end date to only contain dates within the year
     start = pd.to_datetime(f'01/01/{year}')
     end = pd.to_datetime(f'12/31/{year}')
-conc = 'mass'                                                                # if set up similar to my set up, either num for number or vol for volume concentration
+conc = 'num'                                                                # if set up similar to my set up, either num for number or vol for volume concentration
 conc_dict = {'vol':'Volume', 'num':'Number', 'mass': 'Mass'}
 inFolderpath = expanduser(f'~\Documents\Research\SMPS_{year}\Raw_{conc}')   # folder that contains all the input files and where the output files will be placed
 combo_name = fr'{year}_SMPS{conc}'                                          # the name for the outputted raw combined file, .csv extension not included
@@ -50,7 +51,7 @@ def main():
         CombinedDF = CombineFiles()
         QADF = QualityAssureFile(CombinedDF)
         raw, clean, stp, EBAS = AverageFile(QADF)
-        if conc =='vol':
+        if conc =='num':
             SMPS_EBAS(EBAS, Path(inFolderpath).with_name('ACTRIS'))
 
     if not dev:
@@ -69,7 +70,7 @@ def main():
                 Avgfilepath = Path(input("\nEnter full path of file you would like to average.\n"))         # prompt for the full path of data they would like to average
                 AverageFile(pd.DataFrame(),Avgfilepath)                                                     #   run AverageFile with an empty dataframe and the path of file specified
             elif task.lower() == 'stp':
-                STPfilepath = Path(input("\nEnter full path of file you would like to average.\n"))
+                STPfilepath = Path(input("\nEnter full path of file you would like to convert to STP.\n"))
                 Data = ConvertToSTP(STPfilepath)
             else: 
                 print(f'{task} not found in list [Combine, QA, Average, STP, All]')
@@ -123,7 +124,7 @@ def CombineFiles():
     if dev:
         folderpath = Path(inFolderpath)
     else:
-        folderpath = Path(input("\nInput the full path of the folder youd like to access:\n"))
+        folderpath = Path(input("\nInput the full path of the folder you'd like to access:\n"))
     ParentPath = folderpath.parent
 
     #itterates through each file in the user specified folder and appends them to dataTotal
@@ -170,15 +171,13 @@ def CombineFiles():
         metaTotal.to_csv(ParentPath / final_m_name) 
         print(f'2 files generated at {ParentPath}')
     elif not dev:
-        if input('\nWould you like to save this combined file? (Y/N)\n') == 'Y':    #promt user to save combined file if yes, create the file at user speified location 
-                                                                                    #just outside the folder the user specified earlier
-            name = input('\nEnter the desired name of your combined file. [DO NOT INCLUDE .CSV]:\n' \
-                        '(This will place the file just outside the folder you indicated previously with the name you specify)\n')
-            final_m_name = name + 'METADATA.csv'
-            final_d_name = name + '.csv'
-            dataTotal.to_csv(ParentPath / final_d_name)
-            metaTotal.to_csv(ParentPath / final_m_name)                         #creates the csv file with name plus META with all the metadata from the combination
-            print(f'2 files generated at {ParentPath}')
+        name = input('\nEnter the desired name of your combined file. [DO NOT INCLUDE .CSV]:\n' \
+                    '(This will place the file just outside the input folder)\n')
+        final_m_name = name + 'METADATA.csv'
+        final_d_name = name + '.csv'
+        dataTotal.to_csv(ParentPath / final_d_name)
+        metaTotal.to_csv(ParentPath / final_m_name)                         #creates the csv file with name plus META with all the metadata from the combination
+        print(f'2 files generated at {ParentPath}')
     return dataTotal                                                            #return the combined file
 
 def QualityAssureFile(Data, folder = ''):
@@ -205,8 +204,8 @@ def QualityAssureFile(Data, folder = ''):
         dataRaw = Data                                                                          # Assumed to be a DataFrame, will break otherwise
     # Use outlier functions to flag outliers
     # flag if the humidity in either the Sample or Sheath line is greater than 40 or less than 0
-    dataRaw = FindOutliersRange(dataRaw, 'Aerosol Humidity (%)', 0, 40, name_out='Sample RH Flag')
-    dataRaw = FindOutliersRange(dataRaw, 'Sheath Relative Humidity (%)', 0, 40, name_out='Sheath RH Flag')
+    dataRaw = FindOutliersRange(dataRaw, 'Aerosol Humidity (%)', 0, cut_RH, name_out='Sample RH Flag')
+    dataRaw = FindOutliersRange(dataRaw, 'Sheath Relative Humidity (%)', 0, cut_RH, name_out='Sheath RH Flag')
     # flag if the geometric means deviates by more than 40% from the next 9 scans
     dataRaw = FindOutliersRolling(dataRaw, 'Geo. Mean (nm)', name_out='Size Flag')
     if conc =='num': # if number concentration
@@ -229,23 +228,22 @@ def QualityAssureFile(Data, folder = ''):
         dataRaw.to_csv(path_out)
         print(f'QA file generated at {path_out.parent}')
     elif not dev: 
-        if input('\nWould you like to save this QA file? (Y/N)\n') == 'Y':          # Prompt the user to save the QA file, if yes: create a file
-            if (isinstance(Data, str))|(isinstance(Data, PurePath)):                # If there was a filepath passed, prompt for a name for the file, and save in the same folder as the filepath
-                if folder == '': folder = Path(Data).parent
-                name = input('\nEnter the desired name of your QA file. [DO NOT INCLUDE .CSV]:\n' \
-                            f'(This will place the file within {folder})\n')
-                dataRaw.to_csv(Path(Data).with_name(name+'.csv')) 
-                print(f'QA file generated at {folder}')
+        if (isinstance(Data, str))|(isinstance(Data, PurePath)):                # If there was a filepath passed, prompt for a name for the file, and save in the same folder as the filepath
+            if folder == '': folder = Path(Data).parent
+            name = input('\nEnter the desired name of your QA file. [DO NOT INCLUDE .CSV]:\n' \
+                        f'(This will place the file within {folder})\n')
+            dataRaw.to_csv(Path(Data).with_name(name+'.csv')) 
+            print(f'QA file generated at {folder}')
+        else: 
+            if folder =='':
+                path_out = input('\nEnter the full path for your QA file. [DO NOT INCLUDE .CSV]:\n')  
             else: 
-                if folder =='':
-                    path_out = input('\nEnter the full path for your QA file. [DO NOT INCLUDE .CSV]:\n')  
-                else: 
-                    name = input('\nEnter the desired name of your QA file. [DO NOT INCLUDE .CSV]:\n' \
-                            f'(This will place the file within {folder})\n')
-                    path_out = folder+'/'+QA_name+'.csv'
-                path_out = Path(path_out)
-                dataRaw.to_csv(name)
-                print(f'QA file generated at {path_out.parent}')
+                name = input('\nEnter the desired name of your QA file. [DO NOT INCLUDE .CSV]:\n' \
+                        f'(This will place the file within {folder})\n')
+                path_out = folder+'/'+QA_name+'.csv'
+            path_out = Path(path_out)
+            dataRaw.to_csv(name)
+            print(f'QA file generated at {path_out.parent}')
     return dataRaw                                                                  # Return QA dataframe
 
 def AverageFile(Data,folder =''):
@@ -661,17 +659,6 @@ def SMPS_EBAS(df,folder_out):
             flags[i] = [[390] for j in range(len(data[i]))]
     data =  list(map(list, zip(*data)))
     flags = list(map(list, zip(*flags)))
-
-    date_list = []
-    for i in range(len(dates)-1):
-        if i == 0:
-            date_list.append(pd.to_datetime(dates[i]))
-        elif (pd.to_datetime(dates[i+1])-pd.to_datetime(dates[i]) > pd.Timedelta(1, 'hr')):
-            date_list.append(pd.to_datetime(dates[i]))
-            date_list.append(pd.to_datetime(dates[i+1]))
-    date_list.append(pd.to_datetime(dates[-1]))  
-    # data = np.nan_to_num(data, nan=1, posinf=1e6, neginf=-1e6)
-    # input(np.isnan(np.sum(data)))
     ebas_genfile(folder_out, data, flags, dates, smps_header, smps_units, smps_stats, smps_locs, smps_D, smps_cols)
 
 #if the program exists, run it

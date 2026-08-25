@@ -382,7 +382,7 @@ def line_plot(x,y,legs, x_label, y_label, title):
 
 def scat_plot(x,y,fit_x,fit_y,legs, x_label, y_label, title,ms = 10, clrs = [],mrks =[]):
     if len(clrs) < len(x):
-        clrs = ["#2F459C","#EC7744","#C1A843","#8F368D","#7E3BAB","#4DB55A", "#3D9896", "#9C3131"]
+        clrs = ["#d62728","#1f77b4","#D1520E","#2ca02c","#8619CE","#12CE2B", "#D1520E", "#CD1616"]
     if len(mrks) < len(x):
         mrks = ['.','X','*','2','^','P','s','v','D']#np.full((len(x),), '*')
     plt.ion()

@@ -7,6 +7,7 @@ Purpose: Process through raw CCN data and convert it according to ACTRIS formati
 """IMPORTS"""
 import numpy as np
 import pandas as pd 
+import os
 from os.path import expanduser 
 from CCN_process import *
 try:
@@ -15,6 +16,7 @@ try:
 except: 
     print('CCN_EBAS_convert script not accesable -> EBAS file not generated')
     ebas = False
+dev = False # turn off developer mode 
 
 '''EXAMPLE SET UP FOR EASE OF USE'''
 '''Your exact folder structure will almost certainly look
@@ -49,13 +51,16 @@ def main():
     is active it assumes files paths were provided within the global 
     environment in an attempt to minimize required inputs.    
     +++====1 Read In Files 1===='''
-    global file, ini_file, file_out, ebas_out, bad_dates, ebas
+    global file, ini_file, file_out, ebas_out, bad_dates, ebas, file_out_lvl0, file_out_lvl1, file_out_lvl2
     if not dev:
-        file = input('Provide path for CCN yearly csv file...')
-        ini_file = input('Provide path for CCN.ini csv file...')
-    df, dt_dct= readin(file)                                        # read in minute resolved data to DataFrame
-    TGdum, slope_i, intercept_i, ss_list, date = readini(ini_file)  # read in init file to Metadata DataFrame
-    ss_vals = [0.1,0.15,0.25,0.4,0.7]                               # set expected ss values 
+        file = input('Provide path for CCNC csv file to process...')
+        ini_file = input('Provide path for CCN.ini file or press enter to skip...')
+    df, dt_dct= readin(file)                                            # read in minute resolved data to DataFrame
+    if ini_file !='':
+        TGdum, slope_i, intercept_i, ss_list, date = readini(ini_file)  # read in init file to Metadata DataFrame
+    else: 
+        slope_i, intercept_i =16.01,1.03                                # the generic slope and intercept for ss calc if ini file not provided
+    ss_vals = [0.1,0.15,0.25,0.4,0.7]                                   # set expected ss values 
     #endregion 
     #region 
     '''====2 Calculate SS and Apply Minute Flags 2====+++
@@ -215,6 +220,7 @@ def main():
     df2['avg_complete'] = avg_comp
     df2['integrity_flag'] = (df2['avg_complete'].to_numpy()<.75).astype(int)
     df2['N_flag'] = ((df2['N(cm-3)_cor_stp_setpt0.7'].to_numpy()>5000.0)|(df2['N(cm-3)_cor_stp_setpt0.4'].to_numpy()>5000.0)|(df2['N(cm-3)_cor_stp_setpt0.25'].to_numpy()>5000.0)|(df2['N(cm-3)_cor_stp_setpt0.15'].to_numpy()>5000.0)|(df2['N(cm-3)_cor_stp_setpt0.1'].to_numpy()>5000.0)).astype(int) #concentration less than 5000
+    df2['L_flag'] = ((df2['N(cm-3)_cor_stp_setpt0.7'].to_numpy()<1)|(df2['N(cm-3)_cor_stp_setpt0.4'].to_numpy()<1)|(df2['N(cm-3)_cor_stp_setpt0.25'].to_numpy()<1)|(df2['N(cm-3)_cor_stp_setpt0.15'].to_numpy()<1)|(df2['N(cm-3)_cor_stp_setpt0.1'].to_numpy()<1)).astype(int)
     for c in ['ss_flag','Q_flag','T1_flag1','T1_flag2','T1_flag3']:
         val = df2.pop(c) # drop minute collected flags since no longer needed
     flags = df2[['integrity_flag','N_flag']].to_numpy()
@@ -230,7 +236,22 @@ def main():
         'do nothing'
     # Drop rows where all concentrations are 0 or NaN
     conc = [col for col in df2.columns.to_numpy() if 'N(cm-3)' in col]
-    mask = ((df2[conc] == 0) | (df2[conc].isna())).all(axis=1)
+    mask = ((df2[conc] < 1) | (df2[conc].isna())).all(axis=1)
+    if not dev:
+        bad_dates = []
+        select_dates = input('If there are periods to remove, enter them as a collection of date strings. '
+                            '\n Split start and end dates with a "," and periods with a ";" such as'
+                            '\n    starti  ,    endi    ;   startf   ,   endf'
+                            '\n"MM/DD/YYYY","MM/DD/YYYY";"MM/DD/YYYY","MM/DD/YYYY",' 
+                            '\n Press enter to skip...')
+        if select_dates != '':
+            sets = select_dates.split(';')
+            for s in sets:
+                bad = []
+                dates = s.split(',')
+                for d in dates:
+                    bad.append(pd.to_datetime(d))
+                bad_dates.append(bad)
     for date in bad_dates: # remove periods of suspected bad data
         mask |= (df2.index >= date[0]) & (df2.index <= date[-1])
     df2 = df2.loc[~mask]
@@ -241,9 +262,13 @@ def main():
     +++====5 Generate Outputs 5===='''
     #region 
     if not dev:
-        file_out = input('Provide output path for processed CCN yearly file...')
+        file_out = input('Provide output folder for processed CCN yearly file...')
+        desc = input('Provide year(or other descriptor) for output files')
+        file_out_lvl2 = os.join(file_out,f'CCN_lvl2_{desc}_1hr.csv')
+        file_out_lvl1 = os.join(file_out,f'CCN_lvl1_{desc}_1hr.csv')
+        file_out_lvl0 = os.join(file_out,f'CCN_lvl0_{desc}_1hr.csv')
         if ebas:
-            ebas_out = input('Provide output folder for formated CCN EBAS file...')
+            ebas_out = input('Provide output folder for formatted CCN EBAS file...')
     df2.to_csv(file_out_lvl2)
     df1.to_csv(file_out_lvl1)
     df0.to_csv(file_out_lvl0)

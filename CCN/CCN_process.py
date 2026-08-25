@@ -31,7 +31,7 @@ def readin(path, skip1 =True):
     cols_rename : [dict] dictionary with verbose definition as the key and column name as the value
     """
     if skip1:
-        data = pd.read_csv(path,skiprows=lambda x:x==1)#read in csv skipping first row of verbose column headings
+        data = pd.read_csv(path,skiprows=lambda x:x==1)#read in csv using first row of verbose column headings
     else:
         data = pd.read_csv(path) #read in csv 
     try:
@@ -44,7 +44,7 @@ def readin(path, skip1 =True):
             data=data.set_index('Date String (YYYY-MM-DD hh:mm:ss) UTC')
             data.index.names = ['Datetime(UTC)']
     data.index = pd.to_datetime(data.index,format = 'mixed')
-    data = data[data.index>pd.to_datetime('01/01/2024')]
+    data = data[data.index>pd.to_datetime('01/01/2024')] # remove the initial 1970's datatime at the start of the dataframe 
     cols_rename = {'particle number concentration (cm-3)': 'N(cm-3)','inlet temperature (°C)': 'T(C)_inlet','temperature of TEC 1 (°C)':'T1(C)','temperature of TEC 2 (°C)':'T2(C)'
                    ,'temperature of TEC 3 (°C)':'T3(C)','sample temperature (°C)': 'T(C)_sample','OPC temperature (°C)':'T(C)_OPC','nafion temperature (°C)':'T(C)_nafion',
                    'sample flow rate (lpm)': 'Q(lpm)_sample','sheath flow (lpm)':'Q(lpm)_sheath','reported supersaturation from onboard instrument calibration (%)':'ss(%)_setpt',
@@ -152,7 +152,6 @@ def time_avg_ss(df, deltat='1h', ss_vals = [], ssflag = True, clean = False):
         ts = times[i]
         tf = ts +pd.Timedelta(dt_num, deltat[1])- pd.Timedelta(1,'min')
         slct = df.loc[ts:tf]
-        check = slct[slct['ss_dev']>20.0]
         if clean:    # filter based on passed flags
             flag = ['Q_flag','T1_flag1','T1_flag2','T1_flag3']
             slct = slct.loc[(slct[flag] == 0).all(axis=1)] 
@@ -212,7 +211,7 @@ def rowwise_linfit(X,X_new,Y):
     X_new = np.asarray(X_new, dtype = float)
 
     # Compute means per row
-    X_mean = X.mean(axis=1, keepdims=True)
+    X_mean = X.mean(axis=1, keepdims=True) 
     Y_mean = Y.mean(axis=1, keepdims=True)
 
     # Compute slope (a_i) and intercept (b_i)
@@ -401,7 +400,7 @@ def flow_corr_lin(df, start_date,end_date, flow, cols, ratio0,ratio1, int0, int1
         df[f'{col}_{name}_cor'] = df[col] *raw/df[f'{flow}_{name}_cor'].to_numpy()
     return df
 
-def CCN_EBAS(file_in,folder_out, ss_vals):
+def CCN_EBAS(file_in,folder_out, ss_vals,NCC_label ='N(cm-3)_cor_stp_setpt'):
     """
     Takes in a path to processed CCN file and generates a NASA AMES formated file
     ----------
@@ -420,13 +419,21 @@ def CCN_EBAS(file_in,folder_out, ss_vals):
     N = df['N_flag'].to_numpy()
 
     df = df.fillna(0)
+    df['T(K)_sample'] = df['T(C)_sample'] +273.15
     df.index = pd.to_datetime(df.index)
     dates= df.index.to_list()
+    freq = '1'+ pd.infer_freq(dates[0:3])
     # input(np.isnan(np.sum(df.values.tolist())))
-    ccn_corr_cols = [f'N(cm-3)_cor_stp_setpt{ss}' for ss in ss_vals]
+    ccn_corr_cols = [f'{NCC_label}{ss}' for ss in ss_vals]
+    # ccn_corr_cols.extend(['T(K)_sample','P(hPa)_sample'])
     ccn_header = [f'cloud_condensation_nuclei_number_concentration' for sp in ss_vals]
+    # ccn_header.extend(['temperature','pressure'])
     ccn_ss = [f'{sp}' for sp in ss_vals]
+    # ccn_ss.extend(['',''])
     ccn_cols = [f'ccnc[ss={sp}]' for sp in ss_vals]
+    # ccn_cols.extend(['T_int','p_int'])
+    units = ['1/cm3' for sp in ss_vals]
+    # units.extend(['K','hPa'])
     data = df[ccn_corr_cols].values.tolist()
 
     flags = [[[000] for j in range(len(data[i]))] for i in range(len(dates))]
@@ -435,15 +442,4 @@ def CCN_EBAS(file_in,folder_out, ss_vals):
             flags[i] = [[459] for j in range(len(data[i]))]
     data =  list(map(list, zip(*data)))
     flags = list(map(list, zip(*flags)))
-
-    date_list = []
-    for i in range(len(dates)-1):
-        if i == 0:
-            date_list.append(pd.to_datetime(dates[i]))
-        elif (pd.to_datetime(dates[i+1])-pd.to_datetime(dates[i]) > pd.Timedelta(1, 'hr')):
-            date_list.append(pd.to_datetime(dates[i]))
-            date_list.append(pd.to_datetime(dates[i+1]))
-    date_list.append(pd.to_datetime(dates[-1]))  
-    # data = np.nan_to_num(data, nan=1, posinf=1e6, neginf=-1e6)
-    # input(np.isnan(np.sum(data)))
-    ebas_genfile(folder_out, data, flags, dates, ccn_header, ccn_ss, ccn_cols)
+    ebas_genfile(folder_out, data, flags, dates, ccn_header, ccn_ss, ccn_cols, units,freq)

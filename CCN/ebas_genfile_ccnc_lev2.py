@@ -51,17 +51,6 @@ def set_fileglobal_metadata(nas):
             PS_ADDR_COUNTRY='United States of America',
             PS_ORCID=None,
         ))
-    nas.metadata.originator.append(
-        DataObject(
-            PS_LAST_NAME=u'Sykes', PS_FIRST_NAME='Ben', PS_EMAIL='sykesbb@appstate.edu',
-            PS_ORG_NAME='Appalachian Atmospheric Interdisciplinary Research Program',
-            PS_ORG_ACR='AppalAIR', PS_ORG_UNIT='Department of Physics & Astronomy',
-            PS_ADDR_LINE1='525 Rivers Street', PS_ADDR_LINE2=None,
-            PS_ADDR_ZIP='28608', PS_ADDR_CITY='Boone',
-            PS_ADDR_COUNTRY='United States of America',
-            PS_ORCID=None,
-        ))
-
     # Data Submitters (contact for data technical issues)
     nas.metadata.submitter = []
     nas.metadata.submitter.append(
@@ -202,7 +191,7 @@ def ebas_genfile(path,data,flag,date,headers,ss, cols,units,freq):
     # Set the time axes and related metadata
     set_time_axes(nas,date,freq)
     # Set metadata and data for all variables
-    set_variables(nas, data, flag, headers,units,ss,cols)
+    set_variables(nas, data, flag, headers, units, ss, cols)
 
     # write the file:
     # with open(r"C:\Users\bensy\Documents\Research\EBAStest.txt", "w") as text_file:
@@ -226,3 +215,40 @@ def ebas_genfile(path,data,flag,date,headers,ss, cols,units,freq):
     #     flag column per variable.
     #     This is a trade-off between the advantages and disadvantages of the
     #     above mentioned approaches.
+
+def CCN_EBAS(file_in,folder_out, ss_vals, csv_name = 'N(cm-3)_',inc_atp= False):
+    """
+    Takes in a path to a processed CCN csv file and generates a NASA AMES formated file
+    ----------
+    Parameters
+    ++++++++++
+    file_in : [str/path-like] Path to the processed CCN file
+    folder_out : [str/path-like] Path to folder to place EBAS file
+    ss_vals: [list of floats] ss% setpoints
+
+    Returns
+    ++++++++++
+    NONE
+    """
+    df = pd.read_csv(file_in) #read in csv 
+    df=df.set_index('Datetime(UTC)')
+    df = df.where((pd.notnull(df)), None) #Replace nan values with None
+    df.index = pd.to_datetime(df.index)
+    freq = '1'+ pd.infer_freq(dates[0:3]) # assumes at least the first three hours produce a representative frequency
+    dates= df.index.to_list()
+    ccn_cols = [f'{csv_name}{ss}' for ss in ss_vals] # headers from csv
+    ccn_header = [f'cloud_condensation_nuclei_number_concentration' for sp in ss_vals] # headers for metadata
+    ccn_ss = [f'{sp}' for sp in ss_vals] # ss set point values
+    ccn_cols = [f'ccnc[ss={sp}]' for sp in ss_vals] # column names 
+    units = ['1/cm3' for sp in ss_vals] # units
+    data = df[ccn_cols].values.tolist()
+    if inc_atp:
+        ccn_cols.extend(['T(K)_sample','P(hPa)_sample'])
+        ccn_header.extend(['temperature','pressure'])
+        ccn_ss.extend(['',''])
+        ccn_cols.extend(['T_int','p_int'])
+        units.extend(['K','hPa'])
+    flags = [[[000] for j in range(len(data[i]))] for i in range(len(dates))]
+    data =  list(map(list, zip(*data)))
+    flags = list(map(list, zip(*flags)))
+    ebas_genfile(folder_out, data, flags, dates, ccn_header, ccn_ss, ccn_cols, units,freq)

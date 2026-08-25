@@ -402,14 +402,22 @@ def plot_gen(data, mode = 0,yvars = 'Fa',xvars = 'Dt',const = '',const_room =0.0
     title_list = ['Y', ' vs ', 'X']
     '''Lines to split on'''
     if lines == 'Org':
-        sorted_array = np.sort(data['org/total'].to_numpy())
+        try: 
+            sorted_array= np.sort(data['V_org [nm3/cm3]'].to_numpy())
+            left = 'V_org [nm3/cm3]'
+            right = r'$ε_{OA}$'
+        except:
+            sorted_array = np.sort(data['org/total'].to_numpy())
+            left = 'org/total'
+            right = r'$F_{OA}$'
         N25 = int(len(sorted_array) * 0.25) #lower 25% of org%
         N75 = int(len(sorted_array) * 0.75) #top 25% of org%
         O25 = sorted_array[:N25]
         O50 = sorted_array[N25:N75]
         O75 = sorted_array[N75:]
         split = {}
-        split['org/total'] = [r'Bottom 25% of $F_{Org}$',O25],[r'Top 25% of $F_{Org}$', O75]
+        split[left] = [f'Bottom 25% of {right}',O25],[f'Top 25% of {right}', O75]
+        
     elif lines == 'GeoMean':
         sorted_array = np.sort(data[f'Geo. Mean (nm)'].to_numpy())
         N25 = int(len(sorted_array) * 0.25) #lower 25% of GeoMean
@@ -428,6 +436,16 @@ def plot_gen(data, mode = 0,yvars = 'Fa',xvars = 'Dt',const = '',const_room =0.0
         O75 = sorted_array[N75:]
         split = {}
         split[f'k_total'] = [r'Bottom 25% of κ$_{chem}$',O25], [r'Top 25% of κ$_{chem}$', O75]
+    elif lines == 'Kappa':
+        var = f'Kappa(ss={ss_vals[0]})'
+        sorted_array = np.sort(data[var].to_numpy())
+        N25 = int(len(sorted_array) * 0.25) #lower 25% of GeoMean
+        N75 = int(len(sorted_array) * 0.75) #top 25% of GeoMean
+        O25 = sorted_array[:N25]
+        O50 = sorted_array[N25:N75]
+        O75 = sorted_array[N75:]
+        split = {}
+        split[var] = [r'Bottom 25% of κ$_{CCN}$',O25], [r'Top 25% of κ$_{CCN}$', O75]
     # input(list(split.values()))
     '''Set Y values'''
     if yvars =='Fa': #if activation fraction values used for plotting
@@ -477,6 +495,12 @@ def plot_gen(data, mode = 0,yvars = 'Fa',xvars = 'Dt',const = '',const_room =0.0
         mask = (data[col] - med).abs() <= (abs(med) * const_room)
         data = data[mask]
         y_name += ' at const Geo. Mean'
+    elif const=='Chem':
+        col = f'k_total'
+        med = data[col].median()
+        mask = (data[col] - med).abs() <= (abs(med) * const_room)
+        data = data[mask]
+        y_name += ' at const Geo. Mean'
 
     '''Set X values'''
     if xvars=='Fa': #if activation fraction values used for plotting
@@ -517,8 +541,8 @@ def plot_gen(data, mode = 0,yvars = 'Fa',xvars = 'Dt',const = '',const_room =0.0
         for i in range(len(y_cols)):
             x_cols.append(size)
     elif xvars=='GeoMean': #if geometric mean values used for plotting
-        x_name = 'Geo. Mean [nm]'
-        title_list[-1] = ('Geometric Mean')
+        x_name = r'D$_{Geo. Mean}$[nm]'
+        title_list[-1] = ('Geometric Mean Diameter')
         GM = f'Geo. Mean (nm)'
         for i in range(len(y_cols)):
             x_cols.append(GM)
@@ -640,7 +664,7 @@ if __name__ == '__main__':
     data = data[~mask]
     # data, FA_cols = find_activation(data, smps_cols, ss_cols)
     # data, FA_cols = find_deviation(data, ss_cols, const="GeoMean", Var="Org",verbose = True,star_size=15)
-    plot_gen(data,mode='scat',xvars='Chem',lines='GeoMean', group='all',thresh=0.13, ss_vals=['0.1'],singleLine =False, org_thresh =1.0) # 
+    plot_gen(data,mode='scat',xvars='GeoMean',lines='Org', group='all',thresh=0.13, ss_vals=['0.15'],singleLine =False,)# org_thresh =1.0) # 
     out = ''r"C:\Users\bensy\Documents\Research\CCN_activation_Fraction.csv"#input("Enter filepath to export data as a csv, or press 'enter' to skip: ")
     if out != '':
         data.to_csv(out)
